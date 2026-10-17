@@ -1,0 +1,2241 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Grow a Garden 3D</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@600;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #1a3a28; font-family: "Nunito", system-ui, sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    position: fixed; inset: 0;
+    overscroll-behavior: none;
+  }
+  #c { display: block; width: 100%; height: 100%; touch-action: none; }
+  #ui { position: absolute; inset: 0; pointer-events: none; color: #fff; }
+  #ui * { pointer-events: auto; }
+  .hud-top {
+    position: absolute;
+    top: max(10px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 6px; flex-wrap: wrap; z-index: 5;
+  }
+  .chip {
+    background: linear-gradient(180deg, rgba(20,55,35,0.94), rgba(12,35,22,0.94));
+    border: 2px solid #4ade80; border-radius: 14px; padding: 7px 12px;
+    font-weight: 800; font-size: 14px; font-family: "Fredoka", sans-serif;
+    box-shadow: 0 4px 16px #0005, inset 0 1px 0 #fff2;
+  }
+  #prompt {
+    position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(180deg, #1a4d30f2, #0d2a1af2);
+    padding: 10px 18px; border-radius: 14px; font-weight: 800; font-size: 14px;
+    display: none; white-space: nowrap; border: 2px solid #4ade80;
+    box-shadow: 0 6px 24px #0006; font-family: "Fredoka", sans-serif;
+    max-width: 92vw; overflow: hidden; text-overflow: ellipsis;
+  }
+  #toolbar {
+    position: absolute;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; z-index: 5;
+  }
+  .tb {
+    min-width: 56px; min-height: 48px; height: 50px; border: none; border-radius: 14px;
+    background: linear-gradient(180deg, #256b42, #1a4d30); color: #e8ffe8;
+    font-weight: 800; font-size: 12px; cursor: pointer; border: 2px solid #4ade80;
+    font-family: "Fredoka", sans-serif; box-shadow: 0 4px 0 #0d2818;
+    transition: transform 0.08s; touch-action: manipulation;
+  }
+  .tb:active, .tb.on { transform: translateY(2px); box-shadow: 0 2px 0 #0d2818; background: #2d8a4e; }
+  #panel {
+    position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%);
+    width: min(380px, 94vw); max-height: 78vh; overflow: auto;
+    background: linear-gradient(180deg, #6b3f24 0%, #4a2c18 100%);
+    border: 4px solid #2a180c; border-radius: 12px; padding: 0;
+    display: none; box-shadow: 0 20px 60px #000a, inset 0 1px 0 #a67c52;
+    font-family: "Fredoka", "Nunito", sans-serif; color: #fff; z-index: 12;
+  }
+  #panel .panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 12px; background: linear-gradient(180deg, #8b5a2b, #6b3f24);
+    border-bottom: 3px solid #2a180c;
+  }
+  #panel .panel-head h2 { font-size: 14px; margin: 0; color: #ffe08a; flex: 1; }
+  #panel .restock-btn {
+    background: #2563eb; color: #fff; border: none; border-radius: 6px;
+    padding: 6px 10px; font-weight: 800; font-size: 12px; cursor: pointer;
+  }
+  #panel .close {
+    background: #ef4444; color: #fff; border: none; border-radius: 6px;
+    width: 32px; height: 32px; font-weight: 900; cursor: pointer; font-size: 14px;
+  }
+  #panel .seed-list { padding: 8px; }
+  #panel .seed-card {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(180deg, #7a4a28, #5c3518);
+    border: 3px solid #2a180c; border-radius: 10px; padding: 10px;
+    margin-bottom: 8px; cursor: pointer;
+  }
+  #panel .seed-card:active { filter: brightness(1.12); }
+  #panel .seed-icon {
+    width: 52px; height: 52px; border-radius: 8px; background: #2a1810;
+    display: grid; place-items: center; font-size: 28px;
+    border: 2px solid #3d2412; flex-shrink: 0;
+  }
+  #panel .seed-info { flex: 1; min-width: 0; }
+  #panel .seed-info .name { font-weight: 800; font-size: 15px; }
+  #panel .seed-info .stock { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+  #panel .seed-info .price { color: #4ade80; font-weight: 800; font-size: 15px; margin-top: 2px; }
+  #panel .rarity {
+    color: #e5e7eb; font-size: 11px; font-weight: 800;
+    padding: 4px 8px; border-radius: 6px; white-space: nowrap; background: #6b7280;
+  }
+  #panel .rarity.uncommon { background: #16a34a; }
+  #panel .rarity.rare { background: #2563eb; }
+  #panel .rarity.epic { background: #7c3aed; }
+  #panel .rarity.legendary { background: #d97706; }
+  #panel .rarity.mythical { background: #db2777; }
+  #panel .row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; padding: 10px 12px; border-bottom: 1px solid #3d241288;
+  }
+  #panel button.action {
+    background: #fbbf24; color: #1c1000; border: none; border-radius: 8px;
+    padding: 7px 12px; font-weight: 800; cursor: pointer;
+  }
+  #panel h3 { font-size: 13px; margin: 8px 12px 4px; color: #ffe08a; }
+  #world-tabs {
+    position: absolute; top: max(48px, calc(env(safe-area-inset-top) + 44px));
+    left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 5;
+  }
+  #world-tabs span {
+    cursor: pointer; padding: 6px 14px; border-radius: 8px; font-weight: 800;
+    font-size: 13px; font-family: "Fredoka", sans-serif; border: 2px solid #0003;
+    box-shadow: 0 3px 0 #0002;
+  }
+  #world-tabs .t-seed { background: #60a5fa; color: #fff; }
+  #world-tabs .t-garden { background: #a16207; color: #fff; }
+  #world-tabs .t-sell { background: #ef4444; color: #fff; }
+  #start {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 20%, #3d9b5c 0%, #1a4d30 45%, #0a1f14 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; z-index: 20;
+  }
+  #start::before {
+    content: ""; position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10' cy='10' r='2' fill='%23ffffff11'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  #start h1 {
+    font-size: clamp(32px, 8vw, 56px); color: #ecfdf5;
+    text-shadow: 0 4px 0 #14532d, 0 8px 24px #0006;
+    font-family: "Fredoka", sans-serif; letter-spacing: 0.02em; position: relative;
+  }
+  #start p {
+    color: #a7f3d0; text-align: center; max-width: 340px; line-height: 1.5;
+    padding: 0 16px; position: relative; font-size: 15px;
+  }
+  #start button {
+    background: linear-gradient(180deg, #fde047, #fbbf24); color: #1c1000;
+    border: none; border-radius: 16px; padding: 16px 48px; font-size: 22px;
+    font-weight: 900; cursor: pointer; font-family: "Fredoka", sans-serif;
+    box-shadow: 0 8px 0 #b45309, 0 12px 32px #0005; position: relative;
+    transition: transform 0.1s;
+  }
+  #start button:hover { filter: brightness(1.05); }
+  #start button:active { transform: translateY(4px); box-shadow: 0 4px 0 #b45309; }
+  #joy-zone {
+    position: absolute;
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: 140px; height: 140px;
+    display: none; touch-action: none; z-index: 6;
+  }
+  #joy-base {
+    width: 140px; height: 140px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.22), rgba(255,255,255,0.07));
+    border: 3px solid rgba(255,255,255,0.4); position: relative;
+    box-shadow: inset 0 0 20px #0003;
+  }
+  #joy-knob {
+    width: 62px; height: 62px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff, #a7f3d0 60%, #4ade80);
+    position: absolute; left: 39px; top: 39px; touch-action: none;
+    box-shadow: 0 4px 12px #0005; will-change: left, top;
+  }
+  #btn-zone {
+    position: absolute;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    display: none; flex-direction: column; gap: 14px; align-items: flex-end; z-index: 6;
+  }
+  .act {
+    width: 72px; height: 72px; border-radius: 50%; border: 3px solid #fff6;
+    background: radial-gradient(circle at 35% 30%, #3d9b5c, #1a4d30);
+    color: #fff; font-weight: 900; font-size: 13px; display: grid; place-items: center;
+    font-family: "Fredoka", sans-serif; box-shadow: 0 4px 12px #0005;
+    touch-action: manipulation; user-select: none;
+  }
+  .act:active { background: #2d8a4e; transform: scale(0.94); }
+  .act.primary { background: radial-gradient(circle at 35% 30%, #fbbf24, #d97706); color: #1c1000; border-color: #fde68a; }
+  #toast {
+    position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(180deg, #1a4d30f0, #0d2a1af0);
+    padding: 10px 18px; border-radius: 14px; font-weight: 800;
+    display: none; z-index: 15; max-width: 90vw; text-align: center;
+    border: 2px solid #4ade80; font-family: "Fredoka", sans-serif;
+    box-shadow: 0 8px 24px #0006;
+  }
+  .hotbar {
+    position: absolute; bottom: 72px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px;
+  }
+  .slot {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: linear-gradient(180deg, rgba(20,50,35,0.9), rgba(10,30,20,0.9));
+    border: 2px solid #4ade80; display: grid; place-items: center;
+    font-size: 20px; position: relative; cursor: pointer;
+    box-shadow: 0 3px 0 #0d2818;
+  }
+  .slot.on { border-color: #fbbf24; box-shadow: 0 0 0 3px #fbbf2488, 0 3px 0 #0d2818; }
+  .slot b {
+    position: absolute; bottom: 2px; right: 4px; font-size: 11px; color: #fff;
+    font-family: "Fredoka", sans-serif; text-shadow: 0 1px 2px #000;
+  }
+  #weather-badge {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(15,40,25,0.75); border-radius: 20px; padding: 4px 14px;
+    font-size: 13px; font-weight: 700; border: 1px solid #4ade8066;
+    font-family: "Fredoka", sans-serif; pointer-events: none;
+  }
+  /* Touch / phone */
+  @media (max-width: 900px), (pointer: coarse) {
+    #joy-zone, #btn-zone { display: flex; }
+    #toolbar {
+      bottom: calc(160px + env(safe-area-inset-bottom));
+      gap: 6px;
+    }
+    .tb { min-width: 52px; height: 46px; font-size: 11px; }
+    .hotbar { bottom: calc(215px + env(safe-area-inset-bottom)); }
+    #prompt { bottom: calc(265px + env(safe-area-inset-bottom)); font-size: 13px; }
+    .chip { font-size: 13px; padding: 6px 10px; }
+    #weather-badge { top: calc(52px + env(safe-area-inset-top)); font-size: 12px; }
+    #panel { max-height: 70vh; width: min(360px, 96vw); }
+    .slot { width: 44px; height: 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+  #fps {
+    position: absolute; top: 4px; right: 4px; font-size: 10px; opacity: 0.4;
+    pointer-events: none; font-family: monospace; display: none;
+  }
+  #pc-keys {
+    position: absolute; left: 12px; bottom: 14px;
+    display: none; flex-direction: column; gap: 4px;
+    pointer-events: none; z-index: 4;
+    font-family: "Fredoka", sans-serif; font-size: 11px; opacity: 0.75;
+  }
+  #pc-keys span {
+    background: rgba(0,0,0,0.45); border: 1px solid #4ade8066;
+    border-radius: 8px; padding: 3px 8px; width: fit-content;
+  }
+  #pc-keys kbd {
+    display: inline-block; background: #1a3d28; border: 1px solid #4ade80;
+    border-radius: 4px; padding: 1px 5px; margin-right: 4px; font-weight: 800;
+  }
+  @media (min-width: 901px) and (pointer: fine) {
+    #pc-keys { display: flex; }
+    #joy-zone, #btn-zone { display: none !important; }
+    #toolbar { bottom: 14px; }
+    .hotbar { bottom: 72px; }
+    #prompt { bottom: 100px; }
+  }
+  #lock-hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.7); padding: 12px 20px; border-radius: 12px;
+    font-family: "Fredoka", sans-serif; font-weight: 700; font-size: 14px;
+    display: none; pointer-events: none; z-index: 8; border: 2px solid #4ade80;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="hud-top">
+    <div class="chip" id="money">💰 100</div>
+    <div class="chip" id="level">⭐ Lv 1 · 0 XP</div>
+    <div class="chip" id="held">Cầm: Tay</div>
+  </div>
+  <div id="world-tabs">
+    <span class="t-seed" id="tab-seed">Hạt giống</span>
+    <span class="t-garden" id="tab-garden">Khu vườn</span>
+    <span class="t-sell" id="tab-sell">BÁN</span>
+  </div>
+  <div id="weather-badge">☀️ Nắng</div>
+  <div id="prompt"></div>
+  <div class="hotbar" id="hotbar"></div>
+  <div id="toolbar">
+    <button class="tb" id="btn-inv">Kho</button>
+    <button class="tb" id="btn-shop">Shop</button>
+    <button class="tb" id="btn-quest">NV</button>
+    <button class="tb" id="btn-music" type="button" title="Nhạc nền">🎵</button>
+    <button class="tb" id="btn-set">Cài</button>
+  </div>
+  <div id="panel"></div>
+  <div id="toast"></div>
+  <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+  <div id="btn-zone">
+    <button class="act primary" id="m-use" type="button">E</button>
+    <button class="act" id="m-jump" type="button">Jump</button>
+    <button class="act" id="m-run" type="button">Run</button>
+  </div>
+  <div id="fps"></div>
+  <div id="pc-keys">
+    <span><kbd>W A S D</kbd> di chuyển</span>
+    <span><kbd>Shift</kbd> chạy · <kbd>Space</kbd> nhảy</span>
+    <span><kbd>E</kbd> / <kbd>Click</kbd> tương tác</span>
+    <span><kbd>1-8</kbd> hạt · <kbd>Q</kbd> bình tưới</span>
+    <span><kbd>Cuộn</kbd> zoom · <kbd>Esc</kbd> thoát chuột</span>
+  </div>
+  <div id="lock-hint">Click vào màn hình để xoay camera · Esc để thoát</div>
+</div>
+<div id="start">
+  <h1>🌱 Grow a Garden</h1>
+  <p>Trồng cây · Thu hoạch · Bán nông sản<br/>
+    <span id="ctrl-hint">WASD · E tương tác · Chuột xoay camera</span>
+  </p>
+  <button id="play" type="button">▶  Chơi ngay</button>
+  <p style="font-size:12px;opacity:.65;margin-top:4px">Tiến trình tự lưu trên máy</p>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+
+/*__SAVE_INJECT__*/
+const INITIAL = window.__INITIAL_SAVE__ || null;
+
+// —— Device / performance profile ——
+const IS_TOUCH = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+const IS_MOBILE = IS_TOUCH || innerWidth < 900;
+const IS_PC = !IS_TOUCH;
+const QUALITY = IS_MOBILE ? "low" : "high";
+const MAX_DPR = IS_MOBILE ? 1.5 : Math.min(devicePixelRatio || 1, 2.25);
+const SHADOW_SIZE = IS_MOBILE ? 1024 : 2048;
+const RAIN_COUNT = IS_MOBILE ? 60 : 180;
+const FLOWER_COUNT = IS_MOBILE ? 10 : 30;
+const PARTICLE_COUNT = IS_MOBILE ? 6 : 16;
+const MOUSE_SENS = 0.0022;
+const LOOK_SENS_DRAG = 0.0042;
+
+let camDist = IS_PC ? 10.5 : 9.5;
+const CAM_DIST_MIN = 5.5;
+const CAM_DIST_MAX = 16;
+
+function buzz(ms = 12) {
+  try { navigator.vibrate?.(ms); } catch {}
+}
+
+// —— Nhạc nền: Grow.mp3 (file bạn upload) ——
+let musicOn = true;
+let musicStarted = false;
+let bgm = null;
+
+function getMusicSrc() {
+  // Streamlit inject base64; standalone dùng file Grow.mp3 cùng thư mục
+  if (window.__MUSIC_B64__) return "data:audio/mpeg;base64," + window.__MUSIC_B64__;
+  return "Grow.mp3";
+}
+
+function ensureBgm() {
+  if (bgm) return bgm;
+  bgm = new Audio(getMusicSrc());
+  bgm.loop = true;
+  bgm.volume = 0.55;
+  bgm.preload = "auto";
+  return bgm;
+}
+
+function startGardenMusic() {
+  try {
+    const a = ensureBgm();
+    musicStarted = true;
+    musicOn = true;
+    a.currentTime = a.currentTime || 0;
+    const p = a.play();
+    if (p && p.catch) p.catch(() => {});
+    const btn = document.getElementById("btn-music");
+    if (btn) btn.textContent = "🎵";
+  } catch (e) {
+    console.warn("music", e);
+  }
+}
+
+function stopGardenMusic() {
+  musicOn = false;
+  if (bgm) {
+    bgm.pause();
+  }
+  const btn = document.getElementById("btn-music");
+  if (btn) btn.textContent = "🔇";
+}
+
+function toggleMusic() {
+  if (!musicStarted) {
+    startGardenMusic();
+    toast("Nhạc Grow 🎵");
+    return;
+  }
+  if (musicOn) {
+    stopGardenMusic();
+    toast("Tắt nhạc");
+  } else {
+    musicOn = true;
+    startGardenMusic();
+    toast("Nhạc Grow 🎵");
+  }
+}
+
+{
+  const hint = document.getElementById("ctrl-hint");
+  if (hint) {
+    hint.textContent = IS_TOUCH
+      ? "Joystick di chuyển · nút E vàng để tương tác"
+      : "WASD · Shift · Space · E/Click · Chuột xoay · Cuộn zoom · Esc";
+  }
+}
+
+const CROPS = {
+  carrot:      { name: "Cà rốt", seed: 10, sell: 18, grow: 16, rarity: "common", color: 0xf18a1f, leaf: 0x3c9a32, emoji: "🥕" },
+  strawberry:  { name: "Dâu tây", multi: true, seed: 24, sell: 46, grow: 28, rarity: "common", color: 0xe21d45, leaf: 0x3c9a32, emoji: "🍓" },
+  tomato:      { name: "Cà chua", multi: true, seed: 48, sell: 98, grow: 42, rarity: "uncommon", color: 0xef3b2f, leaf: 0x3c9a32, emoji: "🍅" },
+  blueberry:   { name: "Việt quất", multi: true, seed: 80, sell: 175, grow: 60, rarity: "uncommon", color: 0x5a6fe0, leaf: 0x3c9a32, emoji: "🫐" },
+  watermelon:  { name: "Dưa hấu", seed: 160, sell: 360, grow: 90, rarity: "rare", color: 0x2f8f45, leaf: 0x2f8f45, emoji: "🍉" },
+  pumpkin:     { name: "Bí ngô", seed: 300, sell: 720, grow: 120, rarity: "epic", color: 0xee7a1a, leaf: 0x3c9a32, emoji: "🎃" },
+  dragonfruit: { name: "Thanh long", multi: true, seed: 640, sell: 1600, grow: 160, rarity: "legendary", color: 0xef4e88, leaf: 0x3aaa55, emoji: "🐉" },
+  moonflower:  { name: "Hoa mặt trăng", seed: 1600, sell: 4500, grow: 220, rarity: "mythical", color: 0xd9ccff, leaf: 0x6f8f62, emoji: "🌙" },
+};
+
+function defaultSave() {
+  return {
+    coins: 100, xp: 0, level: 1,
+    seeds: { carrot: 3, strawberry: 1, tomato: 0, blueberry: 0, watermelon: 0, pumpkin: 0, dragonfruit: 0, moonflower: 0 },
+    produce: {}, plots: {},
+    tools: { watering_can: 1, shovel: 1 }, pet: null,
+    appearance: { shirt: "#3b82f6", pants: "#1e3a5f", skin: "#f5c6a5" },
+    stats: { planted: 0, harvested: 0, sold: 0 },
+    quests: { plant: 0, harvest: 0, sellCoins: 0 },
+  };
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem("gag3d-v2");
+    if (raw) {
+      const d = JSON.parse(raw);
+      const base = defaultSave();
+      return {
+        ...base, ...d,
+        seeds: { ...base.seeds, ...(d.seeds || {}) },
+        produce: { ...(d.produce || {}) },
+        plots: { ...(d.plots || {}) },
+        tools: { ...base.tools, ...(d.tools || {}) },
+        appearance: { ...base.appearance, ...(d.appearance || {}) },
+        stats: { ...base.stats, ...(d.stats || {}) },
+        quests: { plant: 0, harvest: 0, sellCoins: 0, ...(d.quests || {}) },
+      };
+    }
+  } catch {}
+  if (INITIAL) {
+    const base = defaultSave();
+    return { ...base, ...INITIAL, seeds: { ...base.seeds, ...(INITIAL.seeds || {}) }, produce: { ...(INITIAL.produce || {}) }, plots: { ...(INITIAL.plots || {}) } };
+  }
+  return defaultSave();
+}
+
+let save = loadGame();
+let _persistTimer = null;
+function persist() {
+  try { localStorage.setItem("gag3d-v2", JSON.stringify(save)); } catch {}
+}
+function persistSoon() {
+  clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(persist, 400);
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") persist();
+});
+window.addEventListener("pagehide", () => persist());
+
+// ═══════════════ RENDERER & SCENE ═══════════════
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: !IS_MOBILE,
+  powerPreference: "high-performance",
+  alpha: false,
+  stencil: false,
+  depth: true,
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, MAX_DPR));
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = IS_MOBILE ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const skyDay = new THREE.Color(0x7ec8f0);
+const skyEve = new THREE.Color(0xf0a060);
+const skyNight = new THREE.Color(0x1a2040);
+scene.background = skyDay.clone();
+scene.fog = new THREE.Fog(skyDay.getHex(), IS_MOBILE ? 28 : 35, IS_MOBILE ? 70 : 85);
+
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 150);
+camera.position.set(0, 9, 14);
+
+// Lighting
+const hemi = new THREE.HemisphereLight(0xc8e8ff, 0x4a7c3a, 0.7);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff0d0, 1.35);
+sun.position.set(20, 32, 14);
+sun.castShadow = true;
+sun.shadow.mapSize.set(SHADOW_SIZE, SHADOW_SIZE);
+sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
+sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 80;
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xa0c8ff, 0.25);
+fill.position.set(-12, 10, -8);
+scene.add(fill);
+const amb = new THREE.AmbientLight(0xffffff, 0.2);
+scene.add(amb);
+
+// ═══════════════ HELPERS ═══════════════
+function mat(color, opts = {}) {
+  return new THREE.MeshStandardMaterial({
+    color, roughness: opts.roughness ?? 0.7, metalness: opts.metalness ?? 0.05,
+    emissive: opts.emissive ?? 0x000000, emissiveIntensity: opts.ei ?? 0,
+    transparent: opts.transparent ?? false, opacity: opts.opacity ?? 1,
+  });
+}
+function box(w, h, d, color, opts = {}) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, opts));
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}
+function cyl(rt, rb, h, color, segs = 12, opts = {}) {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, segs), mat(color, opts));
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}
+function sphere(r, color, segs = 12, opts = {}) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, segs, segs), mat(color, opts));
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}
+
+const colliders = [];
+function addCollider(x, z, hw, hd) {
+  colliders.push({ minx: x - hw, maxx: x + hw, minz: z - hd, maxz: z + hd });
+}
+
+// ═══════════════ GROUND ═══════════════
+const groundGeo = new THREE.PlaneGeometry(90, 90, 1, 1);
+const ground = new THREE.Mesh(groundGeo, mat(0x4caf50, { roughness: 0.95 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Grass patches (darker / lighter checker)
+for (let i = -8; i < 9; i++) {
+  for (let j = -8; j < 9; j++) {
+    if ((i + j) % 2 !== 0) continue;
+    if (Math.abs(i) < 2 && Math.abs(j) < 2) continue;
+    const p = new THREE.Mesh(
+      new THREE.PlaneGeometry(5.2, 5.2),
+      mat((i * j) % 3 === 0 ? 0x45a049 : 0x55b85a, { roughness: 1 })
+    );
+    p.rotation.x = -Math.PI / 2;
+    p.position.set(i * 5, 0.01, j * 5);
+    p.receiveShadow = true;
+    scene.add(p);
+  }
+}
+
+// Dirt path with stones
+const path = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 40), mat(0xc4a574, { roughness: 1 }));
+path.rotation.x = -Math.PI / 2;
+path.position.set(0, 0.025, 3);
+path.receiveShadow = true;
+scene.add(path);
+for (let i = 0; i < 18; i++) {
+  const stone = sphere(0.08 + Math.random() * 0.06, 0x9a8b78, 6);
+  stone.position.set((Math.random() - 0.5) * 3, 0.05, -8 + i * 2.2 + Math.random());
+  stone.scale.y = 0.4;
+  scene.add(stone);
+}
+
+// ═══════════════ FENCES ═══════════════
+function fencePost(x, z) {
+  const g = new THREE.Group();
+  const post = box(0.22, 1.5, 0.22, 0x8b5a2b);
+  post.position.y = 0.75;
+  g.add(post);
+  const top = box(0.28, 0.12, 0.28, 0xa06a35);
+  top.position.y = 1.5;
+  g.add(top);
+  g.position.set(x, 0, z);
+  scene.add(g);
+}
+function buildFence(x0, z0, x1, z1, step = 1.15) {
+  const dx = x1 - x0, dz = z1 - z0;
+  const len = Math.hypot(dx, dz);
+  const n = Math.max(1, Math.floor(len / step));
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    fencePost(x0 + dx * t, z0 + dz * t);
+  }
+  for (const y of [0.55, 1.15]) {
+    const rail = box(len, 0.1, 0.1, 0xa06a35);
+    rail.position.set((x0 + x1) / 2, y, (z0 + z1) / 2);
+    rail.rotation.y = Math.atan2(dx, dz);
+    scene.add(rail);
+  }
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  if (Math.abs(dx) > Math.abs(dz)) addCollider(cx, cz, len / 2 + 0.2, 0.3);
+  else addCollider(cx, cz, 0.3, len / 2 + 0.2);
+}
+// (Không dựng hàng rào dày quanh map – khu vườn chỉ có khung gỗ mỏng)
+
+// ═══════════════ TREES ═══════════════
+function makeTree(x, z, scale = 1, leafColor = 0x2d8f3a) {
+  const root = new THREE.Group();
+  const trunk = cyl(0.28 * scale, 0.38 * scale, 2.4 * scale, 0x6b4423, 8);
+  trunk.position.y = 1.2 * scale;
+  root.add(trunk);
+  // layered canopy
+  const layers = [
+    { y: 2.4, r: 1.5, s: 1 },
+    { y: 3.1, r: 1.2, s: 0.9 },
+    { y: 3.7, r: 0.85, s: 0.8 },
+  ];
+  for (const L of layers) {
+    const foliage = sphere(L.r * scale, leafColor, 10);
+    foliage.position.y = L.y * scale;
+    foliage.scale.set(1, L.s, 1);
+    root.add(foliage);
+  }
+  // small offset clumps
+  const clump = sphere(0.7 * scale, leafColor, 8);
+  clump.position.set(0.6 * scale, 2.6 * scale, -0.3 * scale);
+  root.add(clump);
+  root.position.set(x, 0, z);
+  scene.add(root);
+  addCollider(x, z, 0.85 * scale, 0.85 * scale);
+  return root;
+}
+makeTree(-15, -13, 1.5, 0x2d8f3a);
+makeTree(16, -11, 1.3, 0x3a9e45);
+makeTree(-17, 9, 1.2, 0x288038);
+makeTree(15, 12, 1.4, 0x2d8f3a);
+makeTree(-7, 16, 1.1, 0x3a9e45);
+makeTree(9, 17, 1.25, 0x288038);
+makeTree(-18, -2, 1.0, 0x3a9e45);
+makeTree(18, 4, 1.15, 0x2d8f3a);
+
+// Bushes
+function makeBush(x, z) {
+  const g = new THREE.Group();
+  for (let i = 0; i < 3; i++) {
+    const b = sphere(0.45 + Math.random() * 0.2, 0x3a9e45, 8);
+    b.position.set((Math.random() - 0.5) * 0.5, 0.35, (Math.random() - 0.5) * 0.5);
+    g.add(b);
+  }
+  g.position.set(x, 0, z);
+  scene.add(g);
+}
+[[-5, 12], [6, 13], [-12, -4], [11, -12], [-3, -12], [4, -14]].forEach(([x, z]) => makeBush(x, z));
+
+// Flowers
+function makeFlower(x, z, petalColor) {
+  const g = new THREE.Group();
+  const stem = cyl(0.03, 0.03, 0.35, 0x3c9a32, 5);
+  stem.position.y = 0.18;
+  g.add(stem);
+  const center = sphere(0.08, 0xf5d76e, 6);
+  center.position.y = 0.38;
+  g.add(center);
+  for (let i = 0; i < 5; i++) {
+    const p = sphere(0.07, petalColor, 5);
+    const a = (i / 5) * Math.PI * 2;
+    p.position.set(Math.cos(a) * 0.12, 0.38, Math.sin(a) * 0.12);
+    g.add(p);
+  }
+  g.position.set(x, 0, z);
+  scene.add(g);
+}
+const flowerColors = [0xff6b9d, 0xffa500, 0xc084fc, 0x60a5fa, 0xfbbf24];
+for (let i = 0; i < FLOWER_COUNT; i++) {
+  const fx = (Math.random() - 0.5) * 40;
+  const fz = (Math.random() - 0.5) * 40;
+  if (Math.hypot(fx, fz) < 6) continue;
+  makeFlower(fx, fz, flowerColors[i % flowerColors.length]);
+}
+
+// ═══════════════ POND ═══════════════
+const pondGroup = new THREE.Group();
+const water = new THREE.Mesh(
+  new THREE.CircleGeometry(4.8, 32),
+  mat(0x3a9bd5, { roughness: 0.12, metalness: 0.35, transparent: true, opacity: 0.82 })
+);
+water.rotation.x = -Math.PI / 2;
+water.position.y = 0.1;
+pondGroup.add(water);
+const shore = new THREE.Mesh(
+  new THREE.RingGeometry(4.6, 5.5, 32),
+  mat(0x8b7355, { roughness: 1 })
+);
+shore.rotation.x = -Math.PI / 2;
+shore.position.y = 0.06;
+pondGroup.add(shore);
+// lily pads
+for (let i = 0; i < 5; i++) {
+  const lily = new THREE.Mesh(
+    new THREE.CircleGeometry(0.35 + Math.random() * 0.2, 8),
+    mat(0x3d9b5c, { roughness: 0.8 })
+  );
+  lily.rotation.x = -Math.PI / 2;
+  const a = Math.random() * Math.PI * 2;
+  const r = 1 + Math.random() * 2.5;
+  lily.position.set(Math.cos(a) * r, 0.12, Math.sin(a) * r);
+  pondGroup.add(lily);
+}
+pondGroup.position.set(-13, 0, 11);
+scene.add(pondGroup);
+addCollider(-13, 11, 4.5, 4.5);
+
+// ═══════════════ CLOUDS ═══════════════
+const clouds = [];
+function makeCloud(x, y, z, s = 1) {
+  const g = new THREE.Group();
+  const parts = [[0, 0, 0, 1], [0.9, 0.15, 0.2, 0.75], [-0.8, 0.1, -0.15, 0.7], [0.3, 0.3, -0.4, 0.55]];
+  for (const [px, py, pz, sc] of parts) {
+    const c = sphere(0.8 * s * sc, 0xffffff, 8, { roughness: 1 });
+    c.position.set(px * s, py * s, pz * s);
+    c.castShadow = false;
+    g.add(c);
+  }
+  g.position.set(x, y, z);
+  scene.add(g);
+  clouds.push({ mesh: g, speed: 0.3 + Math.random() * 0.4, baseX: x });
+}
+makeCloud(-20, 16, -15, 2.2);
+makeCloud(10, 18, -25, 2.8);
+makeCloud(25, 15, 5, 1.8);
+makeCloud(-8, 17, 20, 2.4);
+makeCloud(5, 14, -8, 1.5);
+
+// ═══════════════ MARKET STALLS (kiểu Roblox Grow a Garden) ═══════════════
+// ═══════════════ HELPERS: NPC / BẢNG HIỆU ═══════════════
+const _gc = {}, _mc = {}, _labels = [];
+function _bx(w, h, d) { const k = w + "," + h + "," + d; return _gc[k] || (_gc[k] = new THREE.BoxGeometry(w, h, d)); }
+function _cy(rt, rb, h, s) { const k = "c" + rt + "," + rb + "," + h + "," + s; return _gc[k] || (_gc[k] = new THREE.CylinderGeometry(rt, rb, h, s)); }
+function _mt(c) { return _mc[c] || (_mc[c] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, metalness: 0.02 })); }
+function _part(geo, c, x, y, z) {
+  const m = new THREE.Mesh(geo, _mt(c));
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  return m;
+}
+function _tex(canvas) {
+  const t = new THREE.CanvasTexture(canvas);
+  if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+function _rr(c, x, y, w, h, r) {
+  c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+const _FONT = "Fredoka, Nunito, system-ui, sans-serif";
+function makeLabelTex(draw, w, h) {
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext("2d");
+  draw(ctx, w, h);
+  const tex = _tex(cv);
+  _labels.push(() => { ctx.clearRect(0, 0, w, h); draw(ctx, w, h); tex.needsUpdate = true; });
+  return tex;
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => _labels.forEach((f) => f()));
+
+const _faceCache = {};
+function faceTex(open) {
+  if (_faceCache[open]) return _faceCache[open];
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 128;
+  const x = cv.getContext("2d");
+  x.fillStyle = "rgba(255,110,110,0.35)";
+  x.beginPath(); x.ellipse(28, 84, 12, 7, 0, 0, 7); x.ellipse(100, 84, 12, 7, 0, 0, 7); x.fill();
+  x.strokeStyle = "#3a2a1e"; x.fillStyle = "#2a1c14"; x.lineCap = "round";
+  x.lineWidth = 5;
+  x.beginPath(); x.moveTo(30, 36); x.quadraticCurveTo(42, 30, 54, 36); x.moveTo(74, 36); x.quadraticCurveTo(86, 30, 98, 36); x.stroke();
+  if (open) {
+    x.beginPath(); x.ellipse(42, 58, 8, 12, 0, 0, 7); x.ellipse(86, 58, 8, 12, 0, 0, 7); x.fill();
+    x.fillStyle = "#fff";
+    x.beginPath(); x.arc(45, 53, 3, 0, 7); x.arc(89, 53, 3, 0, 7); x.fill();
+  } else {
+    x.lineWidth = 5;
+    x.beginPath(); x.arc(42, 56, 9, 0.15 * Math.PI, 0.85 * Math.PI); x.arc(86, 56, 9, 0.15 * Math.PI, 0.85 * Math.PI); x.stroke();
+  }
+  x.fillStyle = "rgba(0,0,0,0.12)";
+  x.beginPath(); x.ellipse(64, 76, 4, 3, 0, 0, 7); x.fill();
+  x.strokeStyle = "#7a2d2d"; x.lineWidth = 6;
+  x.beginPath(); x.arc(64, 78, 24, 0.18 * Math.PI, 0.82 * Math.PI); x.stroke();
+  return (_faceCache[open] = _tex(cv));
+}
+
+function makeNameTag(name, role) {
+  const tex = makeLabelTex((c, w, h) => {
+    c.fillStyle = "rgba(15,23,42,0.62)";
+    _rr(c, 4, 4, w - 8, h - 8, 22); c.fill();
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillStyle = "#fff"; c.font = "600 38px " + _FONT;
+    c.fillText(name, w / 2, role ? 36 : h / 2);
+    if (role) { c.fillStyle = "#bbf7d0"; c.font = "500 22px " + _FONT; c.fillText(role, w / 2, 72); }
+  }, 256, 96);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  s.scale.set(1.7, 0.64, 1);
+  return s;
+}
+
+function makeSign(text, bg) {
+  const tex = makeLabelTex((c, w, h) => {
+    c.fillStyle = bg; _rr(c, 3, 3, w - 6, h - 6, 10); c.fill();
+    c.strokeStyle = "rgba(255,255,255,0.85)"; c.lineWidth = 5; _rr(c, 9, 9, w - 18, h - 18, 8); c.stroke();
+    c.fillStyle = "#fff"; c.textAlign = "center"; c.textBaseline = "middle";
+    c.font = "600 44px " + _FONT; c.fillText(text, w / 2, h / 2 + 2);
+  }, 256, 96);
+  const g = new THREE.Group();
+  const back = _part(_bx(2.3, 0.86, 0.08), 0x5a3a1e, 0, 0, -0.06);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.82), new THREE.MeshBasicMaterial({ map: tex }));
+  face.position.z = 0.0;
+  g.add(back, face);
+  return g;
+}
+
+function makeStall(x, z, roofColor, stripeAlt = null, sign = null, signBg = "#2563eb") {
+  const g = new THREE.Group();
+  // counter
+  const counter = box(3.6, 1.1, 1.4, 0x8b5a2b);
+  counter.position.y = 0.55;
+  g.add(counter);
+  // posts
+  for (const px of [-1.6, 1.6]) {
+    const post = box(0.22, 3.2, 0.22, 0x6b4423);
+    post.position.set(px, 1.6, -0.5);
+    g.add(post);
+  }
+  // roof board
+  const roof = box(4.0, 0.18, 2.2, roofColor);
+  roof.position.set(0, 3.25, -0.35);
+  g.add(roof);
+  if (stripeAlt !== null) {
+    for (let i = 0; i < 5; i++) {
+      if (i % 2) continue;
+      const stripe = box(0.7, 0.2, 2.25, stripeAlt);
+      stripe.position.set(-1.5 + i * 0.75, 3.28, -0.35);
+      g.add(stripe);
+    }
+  }
+  // back wall thin
+  const back = box(3.6, 2.0, 0.15, 0xa67c52);
+  back.position.set(0, 2.0, -0.95);
+  g.add(back);
+  if (sign) { const sb = makeSign(sign, signBg); sb.position.set(0, 4.05, -0.3); g.add(sb); }
+  g.position.set(x, 0, z);
+  scene.add(g);
+  addCollider(x, z, 2.0, 1.2);
+  return g;
+}
+// Sam – quầy hạt giống (xanh dương)
+makeStall(-6, 10, 0x3b82f6, null, "Hạt giống", "#2563eb");
+// Steven – quầy BÁN (đỏ trắng)
+makeStall(6, 10, 0xef4444, 0xffffff, "BÁN", "#dc2626");
+// Quầy phụ trang trí
+makeStall(-12, 10, 0xa78bfa);
+makeStall(12, 10, 0x22c55e);
+
+// ═══════════════ NPC ═══════════════
+function makeNPC(x, z, opts) {
+  const {
+    shirt = 0x3b82f6, pants = 0x1e3a5f, name = "npc", hat = 0xc4a574, band = 0xb23a3a,
+    overalls = false, apron = false, skin = 0xf5c6a5, hair = 0x5a3a1e, beard = null,
+    label = "", role = "",
+  } = opts;
+  const g = new THREE.Group();
+  const denim = 0x3b6ea5;
+  const top = overalls ? 0xe9d8a6 : shirt;
+
+  const legs = [];
+  for (const s of [-1, 1]) {
+    const pv = new THREE.Group();
+    pv.position.set(s * 0.15, 0.78, 0);
+    pv.add(_part(_bx(0.28, 0.66, 0.32), pants, 0, -0.33, 0));
+    pv.add(_part(_bx(0.3, 0.14, 0.42), 0x3a2a1e, 0, -0.72, 0.05));
+    g.add(pv);
+    legs.push(pv);
+  }
+
+  const torso = new THREE.Group();
+  torso.position.y = 1.18;
+  torso.add(_part(_bx(0.7, 0.82, 0.38), top, 0, 0, 0));
+  torso.add(_part(_bx(0.72, 0.1, 0.4), 0x3a2a1e, 0, -0.36, 0));
+  if (overalls) {
+    torso.add(_part(_bx(0.5, 0.46, 0.04), denim, 0, -0.05, 0.21));
+    torso.add(_part(_bx(0.22, 0.14, 0.02), 0x2c5282, 0, -0.14, 0.235));
+    for (const s of [-1, 1]) {
+      torso.add(_part(_bx(0.1, 0.26, 0.04), denim, s * 0.2, 0.3, 0.2));
+      torso.add(_part(_bx(0.06, 0.06, 0.02), 0xf6c945, s * 0.2, 0.19, 0.235));
+    }
+  } else {
+    torso.add(_part(_bx(0.1, 0.08, 0.02), 0xf6c945, 0, -0.36, 0.205));
+  }
+  if (apron) {
+    torso.add(_part(_bx(0.52, 0.62, 0.04), 0x8b6a3e, 0, -0.1, 0.21));
+    torso.add(_part(_bx(0.26, 0.16, 0.02), 0x6b4f2a, 0, -0.2, 0.235));
+    for (const s of [-1, 1]) torso.add(_part(_bx(0.06, 0.3, 0.04), 0x6b4f2a, s * 0.2, 0.3, 0.2));
+  }
+  g.add(torso);
+
+  const arms = [];
+  for (const s of [-1, 1]) {
+    const pv = new THREE.Group();
+    pv.position.set(s * 0.47, 1.52, 0);
+    pv.add(_part(_bx(0.22, 0.4, 0.24), top, 0, -0.2, 0));
+    pv.add(_part(_bx(0.2, 0.38, 0.22), skin, 0, -0.58, 0));
+    g.add(pv);
+    arms.push(pv);
+  }
+
+  const head = new THREE.Group();
+  head.position.y = 1.9;
+  head.add(_part(_cy(0.27, 0.27, 0.5, 14), skin, 0, 0, 0));
+  const faceMat = new THREE.MeshBasicMaterial({ map: faceTex(true), transparent: true });
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.46), faceMat);
+  face.position.set(0, 0, 0.272);
+  head.add(face);
+  head.add(_part(_cy(0.285, 0.285, 0.18, 14), hair, 0, 0.2, -0.02));
+  head.add(_part(_bx(0.54, 0.4, 0.14), hair, 0, 0.02, -0.2));
+  if (beard) {
+    head.add(_part(_bx(0.44, 0.16, 0.14), beard, 0, -0.2, 0.19));
+    head.add(_part(_bx(0.3, 0.05, 0.05), beard, 0, -0.07, 0.275));
+  }
+  const hatG = new THREE.Group();
+  hatG.position.y = 0.3;
+  hatG.rotation.z = 0.05;
+  hatG.add(_part(_cy(0.58, 0.58, 0.04, 16), hat, 0, 0, 0));
+  hatG.add(_part(_cy(0.3, 0.34, 0.22, 14), hat, 0, 0.12, 0));
+  hatG.add(_part(_cy(0.345, 0.345, 0.06, 14), band, 0, 0.04, 0));
+  head.add(hatG);
+  g.add(head);
+
+  const tag = makeNameTag(label || name, role);
+  tag.position.y = 2.95;
+  g.add(tag);
+
+  g.position.set(x, 0, z);
+  g.userData = {
+    npc: name, torso, head, arms, legs, faceMat,
+    ph: Math.random() * 6, blinkAt: 2 + Math.random() * 2,
+  };
+  scene.add(g);
+  addCollider(x, z, 0.5, 0.5);
+  return g;
+}
+function updateNPC(n, t, dt) {
+  const u = n.userData;
+  const dx = player.position.x - n.position.x, dz = player.position.z - n.position.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 > 1600) return;
+  const near = d2 < 100, k = Math.min(1, dt * 5);
+  const br = Math.sin(t * 2 + u.ph);
+  u.torso.scale.y = 1 + br * 0.012;
+  u.head.position.y = 1.9 + br * 0.01;
+  const ang = Math.atan2(dx, dz);
+  const tb = near ? Math.max(-0.5, Math.min(0.5, ang)) * 0.5 : 0;
+  n.rotation.y += (tb - n.rotation.y) * Math.min(1, dt * 4);
+  const th = near ? Math.max(-0.9, Math.min(0.9, ang - n.rotation.y)) : Math.sin(t * 0.4 + u.ph) * 0.25;
+  u.head.rotation.y += (th - u.head.rotation.y) * k;
+  u.head.rotation.x += ((near ? -0.06 : 0) - u.head.rotation.x) * k;
+  u.arms[0].rotation.x = Math.sin(t * 1.5 + u.ph) * 0.04;
+  const wv = near ? 2.5 + Math.sin(t * 7) * 0.3 : 0.04;
+  u.arms[1].rotation.z += (wv - u.arms[1].rotation.z) * Math.min(1, dt * 8);
+  if (t > u.blinkAt) {
+    u.faceMat.map = faceTex(false);
+    if (t > u.blinkAt + 0.13) { u.faceMat.map = faceTex(true); u.blinkAt = t + 2.5 + Math.random() * 3; }
+  }
+}
+// Sam (bán hạt) – yếm xanh + nón rơm
+const vendor = makeNPC(-6, 11.2, { shirt: 0xe9d8a6, pants: 0x2c5282, name: "shop", hat: 0xc9a15a, band: 0xb23a3a, overalls: true, hair: 0x6b3f1d, label: "Sam", role: "Bán hạt giống" });
+// Steven (thu mua) – tạp dề da + râu
+const buyer = makeNPC(6, 11.2, { shirt: 0x2f4f6f, pants: 0x3a3a42, name: "buyer", hat: 0x8b6914, band: 0x3a2a1e, apron: true, hair: 0x3a2a1e, beard: 0x3a2a1e, label: "Steven", role: "Thu mua nông sản" });
+
+// ═══════════════ GARDEN PLOTS ═══════════════
+// Khu vườn kiểu Roblox: 2 cột × 4 hàng ô đất nâu trong khung gỗ
+const PLOT_COLS = 2;
+const PLOT_ROWS = 4;
+const PLOT_SIZE = 2.0;
+const PLOT_GAP = 0.35;
+const PLOT_ORIGIN = { x: -2.4, z: -6.5 };
+const plotMeshes = {};
+const plantGroups = {};
+
+function plotKey(i, j) { return `${i},${j}`; }
+
+// nền khu vườn xanh nhạt
+{
+  const padW = PLOT_COLS * (PLOT_SIZE + PLOT_GAP) + 1.2;
+  const padD = PLOT_ROWS * (PLOT_SIZE + PLOT_GAP) + 1.2;
+  const pad = box(padW, 0.08, padD, 0x5cb85c);
+  pad.position.set(
+    PLOT_ORIGIN.x + (PLOT_COLS - 1) * (PLOT_SIZE + PLOT_GAP) / 2,
+    0.04,
+    PLOT_ORIGIN.z + (PLOT_ROWS - 1) * (PLOT_SIZE + PLOT_GAP) / 2
+  );
+  scene.add(pad);
+}
+
+for (let i = 0; i < PLOT_COLS; i++) {
+  for (let j = 0; j < PLOT_ROWS; j++) {
+    const x = PLOT_ORIGIN.x + i * (PLOT_SIZE + PLOT_GAP);
+    const z = PLOT_ORIGIN.z + j * (PLOT_SIZE + PLOT_GAP);
+    const frame = box(PLOT_SIZE + 0.12, 0.28, PLOT_SIZE + 0.12, 0x6b4423);
+    frame.position.set(x, 0.14, z);
+    scene.add(frame);
+    const soil = box(PLOT_SIZE, 0.18, PLOT_SIZE, 0x8b5a2b);
+    soil.position.set(x, 0.26, z);
+    soil.userData = { plot: true, i, j };
+    scene.add(soil);
+    plotMeshes[plotKey(i, j)] = soil;
+  }
+}
+// Khung gỗ mỏng quanh mảnh đất (kiểu Roblox – không cột dày)
+{
+  const cx = PLOT_ORIGIN.x + (PLOT_COLS - 1) * (PLOT_SIZE + PLOT_GAP) / 2;
+  const cz = PLOT_ORIGIN.z + (PLOT_ROWS - 1) * (PLOT_SIZE + PLOT_GAP) / 2;
+  const innerW = PLOT_COLS * (PLOT_SIZE + PLOT_GAP) - PLOT_GAP;
+  const innerD = PLOT_ROWS * (PLOT_SIZE + PLOT_GAP) - PLOT_GAP;
+  const border = 0.22;
+  const h = 0.35;
+  // 4 cạnh khung thấp
+  const north = box(innerW + border * 2, h, border, 0xc4a574);
+  north.position.set(cx, h / 2, cz - innerD / 2 - border / 2);
+  scene.add(north);
+  const south = box(innerW + border * 2, h, border, 0xc4a574);
+  south.position.set(cx, h / 2, cz + innerD / 2 + border / 2);
+  scene.add(south);
+  const west = box(border, h, innerD, 0xc4a574);
+  west.position.set(cx - innerW / 2 - border / 2, h / 2, cz);
+  scene.add(west);
+  const east = box(border, h, innerD, 0xc4a574);
+  east.position.set(cx + innerW / 2 + border / 2, h / 2, cz);
+  scene.add(east);
+}
+
+function stageOf(p) {
+  if (p >= 1) return 3;
+  if (p >= 0.55) return 2;
+  if (p >= 0.22) return 1;
+  return 0;
+}
+
+// ——— Cây & trái kiểu Grow a Garden (Roblox): trái to, bóng, low-poly ———
+function leafTuft(color, n, len, tilt, y) {
+  const t = new THREE.Group();
+  for (let i = 0; i < n; i++) {
+    const pivot = new THREE.Group();
+    pivot.rotation.order = "YXZ";
+    pivot.rotation.y = (i / n) * Math.PI * 2 + 0.3;
+    pivot.rotation.x = tilt + (i % 2) * 0.25;
+    const blade = box(0.1, len, 0.025, color);
+    blade.position.y = len / 2;
+    pivot.add(blade);
+    pivot.position.y = y;
+    t.add(pivot);
+  }
+  return t;
+}
+function calyx(r) {
+  const c = new THREE.Group();
+  for (let i = 0; i < 3; i++) {
+    const b = box(r * 2, r * 0.25, r * 0.5, 0x3c9a32);
+    b.rotation.y = (i * Math.PI) / 3;
+    c.add(b);
+  }
+  return c;
+}
+function leafPad(x, z, ry, color) {
+  const l = box(0.34, 0.03, 0.24, color);
+  l.position.set(x, 0.04, z);
+  l.rotation.y = ry;
+  return l;
+}
+
+function buildCropBody(id, ripe) {
+  const def = CROPS[id];
+  const g = new THREE.Group();
+  const UNRIPE = 0x86c14a;
+  const fc = ripe ? def.color : UNRIPE;
+  const G = 0x3c9a32, GD = 0x2f7f2a;
+
+  if (id === "carrot") {
+    const root = cyl(0.14, 0.02, 0.5, fc, 8);
+    root.position.y = 0.12;
+    g.add(root);
+    for (let i = 0; i < 3; i++) {
+      const y = 0.27 - i * 0.12;
+      const r = 0.02 + (0.12 * (y + 0.13)) / 0.5 + 0.008;
+      const ring = cyl(r, r, 0.025, ripe ? 0xd9710f : 0x6fa63a, 8);
+      ring.position.y = y;
+      g.add(ring);
+    }
+    g.add(leafTuft(G, 6, 0.5, 0.5, 0.36));
+  } else if (id === "strawberry") {
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const lf = sphere(0.2, i % 2 ? G : GD, 8);
+      lf.scale.y = 0.6;
+      lf.position.set(Math.cos(a) * 0.2, 0.15 + (i % 2) * 0.08, Math.sin(a) * 0.2);
+      g.add(lf);
+    }
+    const spots = [[0.24, 0.3, 0.12], [-0.2, 0.34, 0.1], [0.05, 0.28, -0.26], [-0.12, 0.26, 0.27], [0.3, 0.22, -0.12]];
+    for (const [x, y, z] of spots) {
+      const b = new THREE.Group();
+      const berry = cyl(0.13, 0.03, 0.22, fc, 8);
+      b.add(berry);
+      const cx = calyx(0.1);
+      cx.position.y = 0.11;
+      b.add(cx);
+      if (ripe) {
+        for (let k = 0; k < 5; k++) {
+          const a = (k / 5) * Math.PI * 2;
+          const s = box(0.025, 0.025, 0.025, 0xffe27a);
+          s.position.set(Math.cos(a) * 0.105, 0.02 - (k % 2) * 0.06, Math.sin(a) * 0.105);
+          b.add(s);
+        }
+      }
+      b.position.set(x, y, z);
+      g.add(b);
+    }
+  } else if (id === "tomato") {
+    const stake = cyl(0.025, 0.025, 0.95, 0x8b5a2b, 6);
+    stake.position.y = 0.47;
+    g.add(stake);
+    for (let i = 0; i < 5; i++) {
+      const a = i * 2.1;
+      const lf = sphere(0.17, i % 2 ? G : GD, 8);
+      lf.position.set(Math.cos(a) * 0.14, 0.22 + i * 0.12, Math.sin(a) * 0.14);
+      g.add(lf);
+    }
+    const spots = [[0.26, 0.3, 0.05], [-0.24, 0.46, 0.1], [0.05, 0.64, -0.24], [0.14, 0.2, 0.27]];
+    for (const [x, y, z] of spots) {
+      const t = sphere(0.16, fc, 12);
+      t.scale.y = 0.88;
+      t.position.set(x, y, z);
+      g.add(t);
+      const cx = calyx(0.09);
+      cx.position.set(x, y + 0.14, z);
+      g.add(cx);
+    }
+  } else if (id === "blueberry") {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const lf = sphere(0.2, i % 2 ? G : GD, 8);
+      lf.position.set(Math.cos(a) * 0.17, 0.22 + (i % 3) * 0.1, Math.sin(a) * 0.17);
+      g.add(lf);
+    }
+    for (let i = 0; i < 16; i++) {
+      const a = i * 2.4;
+      const rad = 0.3 + (i % 3) * 0.03;
+      const col = ripe ? (i % 2 ? 0x4a5fd0 : 0x6a7fee) : UNRIPE;
+      const b = sphere(0.07, col, 8);
+      b.position.set(Math.cos(a) * rad, 0.14 + (i % 5) * 0.08, Math.sin(a) * rad);
+      g.add(b);
+      if (ripe) {
+        const dot = sphere(0.02, 0x23306b, 5);
+        dot.position.set(Math.cos(a) * (rad + 0.06), 0.14 + (i % 5) * 0.08, Math.sin(a) * (rad + 0.06));
+        g.add(dot);
+      }
+    }
+  } else if (id === "watermelon") {
+    g.add(leafPad(0.4, 0.1, 0.4, G), leafPad(-0.4, -0.1, -0.5, GD), leafPad(0.05, 0.45, 1.2, G));
+    const melon = new THREE.Group();
+    const body = sphere(0.34, ripe ? 0x3f9f50 : UNRIPE, 14);
+    melon.add(body);
+    for (let i = 0; i < 6; i++) {
+      const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.345, 0.028, 5, 24), mat(ripe ? 0x1a5c28 : 0x5f9a30));
+      stripe.rotation.x = (i * Math.PI) / 6;
+      melon.add(stripe);
+    }
+    melon.scale.set(1.3, 1, 1);
+    melon.position.y = 0.34;
+    g.add(melon);
+    const stem = cyl(0.03, 0.04, 0.14, 0x6f8f3a, 6);
+    stem.position.set(0, 0.72, 0);
+    stem.rotation.z = 0.3;
+    g.add(stem);
+  } else if (id === "pumpkin") {
+    g.add(leafPad(0.5, 0.15, 0.3, G), leafPad(-0.45, -0.2, -0.6, GD));
+    const dark = ripe ? 0xe06a10 : 0x74b040;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const lobe = sphere(0.2, dark, 10);
+      lobe.scale.y = 0.95;
+      lobe.position.set(Math.cos(a) * 0.24, 0.28, Math.sin(a) * 0.24);
+      g.add(lobe);
+    }
+    const mid = sphere(0.3, ripe ? 0xee7a1a : 0x86c14a, 12);
+    mid.scale.set(1.15, 0.95, 1.15);
+    mid.position.y = 0.3;
+    g.add(mid);
+    const stem = cyl(0.045, 0.065, 0.2, 0x5a7a2a, 6);
+    stem.position.set(0.02, 0.62, 0);
+    stem.rotation.z = 0.25;
+    g.add(stem);
+  } else if (id === "dragonfruit") {
+    const trunk = cyl(0.11, 0.13, 1.0, 0x3aaa55, 3);
+    trunk.position.y = 0.5;
+    g.add(trunk);
+    for (const s of [1, -1]) {
+      const arm = cyl(0.07, 0.08, 0.4, 0x3aaa55, 3);
+      arm.position.set(0.2 * s, 0.62, 0);
+      arm.rotation.z = -0.9 * s;
+      g.add(arm);
+    }
+    const spots = [[0.36, 0.44, 0.0], [-0.36, 0.44, 0.0], [0.05, 0.98, 0.14]];
+    for (const [x, y, z] of spots) {
+      const f = new THREE.Group();
+      const body = sphere(0.14, fc, 10, ripe ? { emissive: 0xef4e88, ei: 0.15 } : {});
+      body.scale.y = 1.3;
+      f.add(body);
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2;
+        const fin = box(0.05, 0.14, 0.02, 0x3aaa55);
+        fin.position.set(Math.cos(a) * 0.15, 0.04 - (k % 2) * 0.12, Math.sin(a) * 0.15);
+        fin.rotation.y = -a;
+        f.add(fin);
+      }
+      f.position.set(x, y, z);
+      g.add(f);
+    }
+  } else if (id === "moonflower") {
+    const stem = cyl(0.055, 0.07, 0.75, def.leaf, 6);
+    stem.position.y = 0.45;
+    g.add(stem);
+    g.add(leafTuft(def.leaf, 4, 0.4, 0.9, 0.3));
+    const flower = sphere(0.35, def.color, 12, { emissive: def.color, ei: 0.45 });
+    flower.position.y = 0.9;
+    g.add(flower);
+    for (let i = 0; i < 6; i++) {
+      const petal = sphere(0.15, 0xe8deff, 8, { emissive: 0xb8a0ff, ei: 0.3 });
+      const a = (i / 6) * Math.PI * 2;
+      petal.position.set(Math.cos(a) * 0.35, 0.9, Math.sin(a) * 0.35);
+      g.add(petal);
+    }
+  } else {
+    const fruit = sphere(0.28, fc, 10);
+    fruit.position.y = 0.6;
+    g.add(fruit);
+  }
+  return g;
+}
+
+function buildPlantMesh(cropId, stage, full) {
+  const def = CROPS[cropId];
+  const g = new THREE.Group();
+  if (stage === 0) {
+    const mound = sphere(0.18, 0x8b5a2b, 8);
+    mound.scale.y = 0.4;
+    mound.position.y = 0.05;
+    g.add(mound);
+    const seed = sphere(0.07, 0xc9a06a, 6);
+    seed.position.y = 0.12;
+    g.add(seed);
+  } else if (stage === 1) {
+    const stem = cyl(0.04, 0.05, 0.4, def.leaf, 6);
+    stem.position.y = 0.25;
+    g.add(stem);
+    const leaf = box(0.28, 0.05, 0.14, def.leaf);
+    leaf.position.set(0.12, 0.4, 0);
+    leaf.rotation.z = -0.3;
+    g.add(leaf);
+    const leaf2 = leaf.clone();
+    leaf2.position.x = -0.1;
+    leaf2.rotation.z = 0.3;
+    g.add(leaf2);
+  } else if (stage === 2) {
+    const body = buildCropBody(cropId, false);
+    body.scale.setScalar(full ? 1 : 0.7);
+    g.add(body);
+  } else {
+    g.add(buildCropBody(cropId, true));
+    const glow = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, 0.65, 24),
+      mat(0xfbbf24, { emissive: 0xfbbf24, ei: 0.5, transparent: true, opacity: 0.7, roughness: 0.5 })
+    );
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.y = 0.08;
+    glow.name = "readyGlow";
+    g.add(glow);
+  }
+  return g;
+}
+
+function refreshPlotVisual(key) {
+  if (plantGroups[key]) {
+    scene.remove(plantGroups[key]);
+    plantGroups[key] = null;
+  }
+  const data = save.plots[key];
+  if (!data) return;
+  const [is, js] = key.split(",").map(Number);
+  const x = PLOT_ORIGIN.x + is * (PLOT_SIZE + PLOT_GAP);
+  const z = PLOT_ORIGIN.z + js * (PLOT_SIZE + PLOT_GAP);
+  const elapsed = (Date.now() - data.plantedAt) / 1000 + (data.boost || 0);
+  const progress = Math.min(1, elapsed / CROPS[data.crop].grow);
+  const stage = stageOf(progress);
+  const mesh = buildPlantMesh(data.crop, stage, !!data.regrow);
+  mesh.position.set(x, 0.35, z);
+  scene.add(mesh);
+  plantGroups[key] = mesh;
+  data._progress = progress;
+  data._stage = stage;
+}
+function refreshAllPlots() {
+  for (const key of Object.keys(save.plots)) refreshPlotVisual(key);
+}
+refreshAllPlots();
+
+// ═══════════════ PLAYER ═══════════════
+const player = new THREE.Group();
+const shirtC = new THREE.Color(save.appearance.shirt);
+const pantsC = new THREE.Color(save.appearance.pants);
+const skinC = new THREE.Color(save.appearance.skin);
+
+const torso = box(0.75, 0.95, 0.42, shirtC.getHex());
+torso.position.y = 1.2;
+player.add(torso);
+const head = box(0.58, 0.58, 0.58, skinC.getHex());
+head.position.y = 1.92;
+player.add(head);
+// face
+const eyeL = box(0.1, 0.12, 0.06, 0x1a1a1a);
+eyeL.position.set(-0.13, 1.96, 0.3);
+player.add(eyeL);
+const eyeR = eyeL.clone();
+eyeR.position.x = 0.13;
+player.add(eyeR);
+const smile = box(0.2, 0.05, 0.05, 0xc45c5c);
+smile.position.set(0, 1.78, 0.3);
+player.add(smile);
+// hair tuft
+const hair = box(0.6, 0.15, 0.6, 0x3d2314);
+hair.position.y = 2.25;
+player.add(hair);
+
+const armL = box(0.26, 0.78, 0.26, shirtC.getHex());
+armL.position.set(-0.52, 1.15, 0);
+player.add(armL);
+const armR = box(0.26, 0.78, 0.26, shirtC.getHex());
+armR.position.set(0.52, 1.15, 0);
+player.add(armR);
+const legL = box(0.3, 0.78, 0.3, pantsC.getHex());
+legL.position.set(-0.2, 0.4, 0);
+player.add(legL);
+const legR = box(0.3, 0.78, 0.3, pantsC.getHex());
+legR.position.set(0.2, 0.4, 0);
+player.add(legR);
+// shoes
+const shoeL = box(0.32, 0.14, 0.4, 0x1a1a1a);
+shoeL.position.set(-0.2, 0.07, 0.05);
+player.add(shoeL);
+const shoeR = shoeL.clone();
+shoeR.position.x = 0.2;
+player.add(shoeR);
+
+player.position.set(0, 0, 0);
+scene.add(player);
+
+const heldGroup = new THREE.Group();
+heldGroup.position.set(0.55, 1.05, 0.25);
+player.add(heldGroup);
+
+function setHeldVisual(item) {
+  while (heldGroup.children.length) heldGroup.remove(heldGroup.children[0]);
+  if (item === "watering_can") {
+    const can = box(0.28, 0.3, 0.2, 0x3498db);
+    heldGroup.add(can);
+    const spout = cyl(0.04, 0.04, 0.25, 0x2980b9, 6);
+    spout.rotation.z = Math.PI / 3;
+    spout.position.set(0.2, 0.1, 0);
+    heldGroup.add(spout);
+  } else if (item === "shovel") {
+    const handle = box(0.06, 0.55, 0.06, 0x8b5a2b);
+    handle.position.y = 0.15;
+    heldGroup.add(handle);
+    const blade = box(0.2, 0.22, 0.04, 0x95a5a6, { metalness: 0.5, roughness: 0.35 });
+    blade.position.y = -0.18;
+    heldGroup.add(blade);
+  } else if (item && CROPS[item]) {
+    const bag = box(0.22, 0.22, 0.14, CROPS[item].color);
+    heldGroup.add(bag);
+  }
+}
+
+// Pet
+let petMesh = null;
+function spawnPet() {
+  if (petMesh) { scene.remove(petMesh); petMesh = null; }
+  if (!save.pet) return;
+  const g = new THREE.Group();
+  const body = box(0.55, 0.4, 0.75, 0xf5d0a0);
+  body.position.y = 0.38;
+  g.add(body);
+  const head = box(0.4, 0.38, 0.38, 0xf5d0a0);
+  head.position.set(0, 0.6, 0.42);
+  g.add(head);
+  const earL = box(0.12, 0.35, 0.08, 0xe8b87a);
+  earL.position.set(-0.14, 0.9, 0.42);
+  g.add(earL);
+  const earR = earL.clone();
+  earR.position.x = 0.14;
+  g.add(earR);
+  const nose = sphere(0.06, 0x333, 6);
+  nose.position.set(0, 0.55, 0.62);
+  g.add(nose);
+  const tail = sphere(0.12, 0xf5d0a0, 6);
+  tail.position.set(0, 0.4, -0.45);
+  g.add(tail);
+  scene.add(g);
+  petMesh = g;
+}
+spawnPet();
+
+// ═══════════════ PARTICLES ═══════════════
+const particles = [];
+function spawnBurst(x, y, z, color, count = PARTICLE_COUNT) {
+  const n = Math.min(count, PARTICLE_COUNT);
+  for (let i = 0; i < n; i++) {
+    const p = sphere(0.06 + Math.random() * 0.05, color, 5);
+    p.position.set(x, y, z);
+    scene.add(p);
+    particles.push({
+      mesh: p,
+      vx: (Math.random() - 0.5) * 3,
+      vy: 1.5 + Math.random() * 3,
+      vz: (Math.random() - 0.5) * 3,
+      life: 0.5 + Math.random() * 0.4,
+    });
+  }
+}
+function spawnWaterDrops(x, z) {
+  const n = IS_MOBILE ? 5 : 10;
+  for (let i = 0; i < n; i++) {
+    const p = sphere(0.05, 0x60a5fa, 5, { transparent: true, opacity: 0.8 });
+    p.position.set(x + (Math.random() - 0.5) * 0.5, 1.2, z + (Math.random() - 0.5) * 0.5);
+    scene.add(p);
+    particles.push({
+      mesh: p,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: -0.5 - Math.random(),
+      vz: (Math.random() - 0.5) * 0.5,
+      life: 0.45,
+    });
+  }
+}
+
+// ═══════════════ INPUT ═══════════════
+const keys = {};
+const mouse = { down: false, lx: 0, ly: 0 };
+let yaw = 0, pitch = 0.28;
+let velY = 0, onGround = true;
+let running = false;
+let joy = { x: 0, y: 0, active: false };
+let heldItem = null;
+let animT = 0;
+let weather = "sunny"; // sunny | rain | night
+let weatherT = 0;
+
+window.addEventListener("keydown", (e) => {
+  // Ignore typing inside panel inputs if any
+  if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+  keys[e.code] = true;
+  if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
+  if (e.code === "KeyE" || e.code === "KeyF") tryInteract();
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight" || e.code === "ControlLeft") running = true;
+  if (e.code === "Escape") {
+    if (panel.style.display === "block") {
+      panel.style.display = "none";
+    } else if (document.pointerLockElement) {
+      document.exitPointerLock?.();
+    }
+  }
+  if (e.code === "KeyR") {
+    // quick equip watering can
+    heldItem = "watering_can"; setHeldVisual(heldItem); updateHeldLabel();
+  }
+  if (e.code === "Tab") {
+    e.preventDefault();
+    if (panel.style.display === "block") panel.style.display = "none";
+    else openPanel("inv");
+  }
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= 8) {
+    const ids = Object.keys(CROPS);
+    const id = ids[n - 1];
+    if ((save.seeds[id] || 0) > 0) { heldItem = id; setHeldVisual(id); updateHeldLabel(); buildHotbar(); }
+  }
+  if (e.key === "q" || e.key === "Q") { heldItem = "watering_can"; setHeldVisual(heldItem); updateHeldLabel(); }
+  if (e.code === "KeyF11") {
+    e.preventDefault();
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  }
+});
+window.addEventListener("keyup", (e) => {
+  keys[e.code] = false;
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight" || e.code === "ControlLeft") running = false;
+});
+
+const lockHint = document.getElementById("lock-hint");
+function updateLockHint() {
+  if (!IS_PC || document.getElementById("start").style.display !== "none") {
+    lockHint.style.display = "none";
+    return;
+  }
+  lockHint.style.display = document.pointerLockElement === canvas ? "none" : "block";
+}
+document.addEventListener("pointerlockchange", updateLockHint);
+
+canvas.addEventListener("mousedown", (e) => {
+  if (document.getElementById("start").style.display !== "none") return;
+  if (panel.style.display === "block") return;
+  // Left click: interact if near something, else lock pointer for look
+  if (e.button === 0) {
+    if (nearShop() || nearBuyer() || nearestPlot()) {
+      tryInteract();
+      return;
+    }
+    mouse.down = true; mouse.lx = e.clientX; mouse.ly = e.clientY;
+    canvas.requestPointerLock?.();
+  }
+  // Right click drag = look without lock
+  if (e.button === 2) {
+    e.preventDefault();
+    mouse.down = true; mouse.lx = e.clientX; mouse.ly = e.clientY;
+  }
+});
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+window.addEventListener("mouseup", () => { mouse.down = false; });
+window.addEventListener("mousemove", (e) => {
+  if (document.pointerLockElement === canvas) {
+    yaw -= e.movementX * MOUSE_SENS;
+    pitch = Math.max(-0.2, Math.min(0.85, pitch - e.movementY * MOUSE_SENS * 0.9));
+  } else if (mouse.down) {
+    yaw -= (e.clientX - mouse.lx) * LOOK_SENS_DRAG;
+    pitch = Math.max(-0.2, Math.min(0.85, pitch - (e.clientY - mouse.ly) * LOOK_SENS_DRAG * 0.9));
+    mouse.lx = e.clientX; mouse.ly = e.clientY;
+  }
+});
+// Scroll wheel zoom (PC)
+canvas.addEventListener("wheel", (e) => {
+  if (document.getElementById("start").style.display !== "none") return;
+  e.preventDefault();
+  camDist = Math.max(CAM_DIST_MIN, Math.min(CAM_DIST_MAX, camDist + e.deltaY * 0.012));
+}, { passive: false });
+
+let touchLook = null;
+canvas.addEventListener("touchstart", (e) => {
+  for (const t of e.changedTouches) {
+    if (t.clientX > innerWidth * 0.45) touchLook = { id: t.identifier, x: t.clientX, y: t.clientY };
+  }
+}, { passive: true });
+canvas.addEventListener("touchmove", (e) => {
+  for (const t of e.changedTouches) {
+    if (touchLook && t.identifier === touchLook.id) {
+      yaw -= (t.clientX - touchLook.x) * 0.006;
+      pitch = Math.max(-0.15, Math.min(0.75, pitch - (t.clientY - touchLook.y) * 0.005));
+      touchLook.x = t.clientX; touchLook.y = t.clientY;
+    }
+  }
+}, { passive: true });
+canvas.addEventListener("touchend", (e) => {
+  for (const t of e.changedTouches) {
+    if (touchLook && t.identifier === touchLook.id) touchLook = null;
+  }
+});
+
+const joyZone = document.getElementById("joy-zone");
+const joyKnob = document.getElementById("joy-knob");
+const JOY_CENTER = 70; // 140/2
+const JOY_KNOB = 31;   // 62/2
+const JOY_R = 42;
+function setJoy(x, y) {
+  const len = Math.hypot(x, y) || 1;
+  const nx = x / len * Math.min(len, JOY_R);
+  const ny = y / len * Math.min(len, JOY_R);
+  joyKnob.style.left = (JOY_CENTER - JOY_KNOB + nx) + "px";
+  joyKnob.style.top = (JOY_CENTER - JOY_KNOB + ny) + "px";
+  joy.x = nx / JOY_R;
+  joy.y = ny / JOY_R;
+}
+function resetJoy() {
+  joy.x = 0; joy.y = 0; joy.active = false;
+  joyKnob.style.left = (JOY_CENTER - JOY_KNOB) + "px";
+  joyKnob.style.top = (JOY_CENTER - JOY_KNOB) + "px";
+}
+let joyTouchId = null;
+joyZone.addEventListener("touchstart", (e) => {
+  e.preventDefault(); e.stopPropagation();
+  const t = e.changedTouches[0];
+  joyTouchId = t.identifier;
+  joy.active = true;
+  const rect = joyZone.getBoundingClientRect();
+  setJoy(t.clientX - rect.left - JOY_CENTER, t.clientY - rect.top - JOY_CENTER);
+}, { passive: false });
+joyZone.addEventListener("touchmove", (e) => {
+  e.preventDefault(); e.stopPropagation();
+  for (const t of e.changedTouches) {
+    if (t.identifier !== joyTouchId) continue;
+    const rect = joyZone.getBoundingClientRect();
+    setJoy(t.clientX - rect.left - JOY_CENTER, t.clientY - rect.top - JOY_CENTER);
+  }
+}, { passive: false });
+function endJoy(e) {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyTouchId) { joyTouchId = null; resetJoy(); }
+  }
+}
+joyZone.addEventListener("touchend", endJoy);
+joyZone.addEventListener("touchcancel", endJoy);
+
+function bindAct(id, down, up) {
+  const el = document.getElementById(id);
+  const onDown = (e) => { e.preventDefault(); e.stopPropagation(); down(); };
+  const onUp = (e) => { e.preventDefault(); up?.(); };
+  el.addEventListener("touchstart", onDown, { passive: false });
+  el.addEventListener("touchend", onUp, { passive: false });
+  el.addEventListener("touchcancel", onUp, { passive: false });
+  el.addEventListener("mousedown", (e) => { e.preventDefault(); down(); });
+  el.addEventListener("mouseup", () => up?.());
+}
+bindAct("m-jump", () => { keys["Space"] = true; }, () => { keys["Space"] = false; });
+bindAct("m-run", () => { running = true; }, () => { running = false; });
+bindAct("m-use", () => { tryInteract(); }, null);
+
+const PLAYER_R = 0.4;
+function blocked(nx, nz) {
+  if (Math.abs(nx) > 40 || Math.abs(nz) > 40) return true;
+  for (const c of colliders) {
+    if (nx > c.minx - PLAYER_R && nx < c.maxx + PLAYER_R && nz > c.minz - PLAYER_R && nz < c.maxz + PLAYER_R)
+      return true;
+  }
+  return false;
+}
+
+function dist2(a, b) {
+  const dx = a.x - b.x, dz = a.z - b.z;
+  return dx * dx + dz * dz;
+}
+function nearestPlot() {
+  let best = null, bestD = 2.6 * 2.6;
+  for (let i = 0; i < PLOT_COLS; i++) for (let j = 0; j < PLOT_ROWS; j++) {
+    const x = PLOT_ORIGIN.x + i * (PLOT_SIZE + PLOT_GAP);
+    const z = PLOT_ORIGIN.z + j * (PLOT_SIZE + PLOT_GAP);
+    const d = dist2(player.position, { x, z });
+    if (d < bestD) { bestD = d; best = { i, j, key: plotKey(i, j), x, z }; }
+  }
+  return best;
+}
+function nearShop() { return dist2(player.position, { x: -6, z: 11.2 }) < 16; }
+function nearBuyer() { return dist2(player.position, { x: 6, z: 11.2 }) < 16; }
+
+let _lastInteract = 0;
+function tryInteract() {
+  const now = performance.now();
+  if (now - _lastInteract < 280) return;
+  _lastInteract = now;
+  if (nearShop()) { openPanel("shop"); buzz(8); return; }
+  if (nearBuyer()) { openPanel("sell"); buzz(8); return; }
+  const p = nearestPlot();
+  if (!p) { toast("Đến gần ô đất, shop hoặc NPC"); return; }
+  const data = save.plots[p.key];
+  if (!data) {
+    if (!heldItem || !CROPS[heldItem]) {
+      toast("Chọn hạt ở hotbar (1-8) rồi nhấn E");
+      openPanel("plant");
+      return;
+    }
+    if ((save.seeds[heldItem] || 0) <= 0) { toast("Hết hạt " + CROPS[heldItem].name); return; }
+    save.seeds[heldItem]--;
+    save.plots[p.key] = { crop: heldItem, plantedAt: Date.now(), boost: 0, watered: 0 };
+    save.stats.planted++;
+    save.quests.plant = (save.quests.plant || 0) + 1;
+    save.xp += 2;
+    levelCheck();
+    refreshPlotVisual(p.key);
+    spawnBurst(p.x, 0.5, p.z, 0xc9a06a);
+    persist(); updateHUD(); buildHotbar();
+    buzz(15);
+    toast("Đã gieo " + CROPS[heldItem].name + "!");
+    return;
+  }
+  const elapsed = (Date.now() - data.plantedAt) / 1000 + (data.boost || 0);
+  const progress = Math.min(1, elapsed / CROPS[data.crop].grow);
+  if (progress >= 1) {
+    const crop = data.crop;
+    save.produce[crop] = (save.produce[crop] || 0) + 1;
+    const keep = !!CROPS[crop].multi;
+    if (keep) {
+      data.plantedAt = Date.now() - CROPS[crop].grow * 0.6 * 1000;
+      data.boost = 0; data.watered = 0; data.regrow = true;
+      refreshPlotVisual(p.key);
+    } else {
+      delete save.plots[p.key];
+      if (plantGroups[p.key]) { scene.remove(plantGroups[p.key]); delete plantGroups[p.key]; }
+    }
+    save.stats.harvested++;
+    save.quests.harvest = (save.quests.harvest || 0) + 1;
+    save.xp += 8;
+    levelCheck();
+    spawnBurst(p.x, 0.8, p.z, CROPS[crop].color);
+    persist(); updateHUD();
+    buzz(25);
+    toast("Thu hoạch " + CROPS[crop].name + (keep ? "! Trái sẽ mọc lại" : "!"));
+    return;
+  }
+  if (heldItem === "watering_can" || !heldItem) {
+    if ((data.watered || 0) >= 3) { toast("Cây đã đủ nước"); return; }
+    data.watered = (data.watered || 0) + 1;
+    data.boost = (data.boost || 0) + CROPS[data.crop].grow * 0.22;
+    refreshPlotVisual(p.key);
+    spawnWaterDrops(p.x, p.z);
+    persist();
+    buzz(10);
+    toast("Tưới nước (+22% tốc độ)");
+  } else {
+    toast(CROPS[data.crop].name + " " + Math.floor(progress * 100) + "%");
+  }
+}
+
+function levelCheck() {
+  const need = 40 + save.level * 30;
+  while (save.xp >= need) {
+    save.xp -= need;
+    save.level++;
+    save.coins += 25 * save.level;
+    toast("🎉 Lên cấp " + save.level + "!");
+  }
+}
+
+// ═══════════════ UI ═══════════════
+const panel = document.getElementById("panel");
+
+// Kho hạt shop (giống Roblox restock)
+const shopStock = {};
+function ensureShopStock() {
+  for (const id of Object.keys(CROPS)) {
+    if (shopStock[id] == null) {
+      shopStock[id] = id === "carrot" ? 11 : id === "strawberry" ? 3 : id === "blueberry" ? 2 : 1 + Math.floor(Math.random() * 4);
+    }
+  }
+}
+let restockAt = Date.now() + 5 * 60 * 1000;
+function restockShop() {
+  for (const id of Object.keys(CROPS)) {
+    shopStock[id] = id === "carrot" ? 11 : id === "strawberry" ? 3 : 2 + Math.floor(Math.random() * 5);
+  }
+  restockAt = Date.now() + 5 * 60 * 1000;
+  toast("Sam đã nhập thêm hạt giống!");
+}
+ensureShopStock();
+
+function openPanel(mode) {
+  panel.style.display = "block";
+  if (mode === "shop") {
+    ensureShopStock();
+    const left = Math.max(0, Math.floor((restockAt - Date.now()) / 1000));
+    const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, "0");
+    let html = `<div class="panel-head">
+      <h2>New seeds in ${mm}m ${ss}s</h2>
+      <button class="restock-btn" id="restock">RESTOCK</button>
+      <button class="close" id="pc">✕</button>
+    </div><div class="seed-list">`;
+    for (const [id, c] of Object.entries(CROPS)) {
+      const stock = shopStock[id] || 0;
+      html += `<div class="seed-card" data-buy="${id}">
+        <div class="seed-icon">${c.emoji}</div>
+        <div class="seed-info">
+          <div class="name">${c.name} Seed</div>
+          <div class="stock">X${stock} Stock${c.multi ? " · Hái nhiều lần" : ""}</div>
+          <div class="price">${c.seed}¢</div>
+        </div>
+        <span class="rarity ${c.rarity}">${c.rarity}</span>
+      </div>`;
+    }
+    html += `</div>`;
+    panel.innerHTML = html;
+  } else if (mode === "sell") {
+    let html = `<div class="panel-head"><h2>Steven – Bán nông sản</h2><button class="close" id="pc">✕</button></div>`;
+    const keys = Object.keys(save.produce).filter(k => save.produce[k] > 0);
+    if (!keys.length) html += `<p style="opacity:.8;padding:12px">Chưa có nông sản. Hãy thu hoạch rồi quay lại!</p>`;
+    for (const id of keys) {
+      const c = CROPS[id];
+      const n = save.produce[id];
+      html += `<div class="row"><span>${c.emoji} ${c.name} ×${n}</span>
+        <button data-sell="${id}">${c.sell * n}💰</button></div>`;
+    }
+    if (keys.length) html += `<div class="row"><button data-sellall="1">Bán tất cả</button></div>`;
+    panel.innerHTML = html;
+  } else if (mode === "inv") {
+    let html = `<button class="close" id="pc">✕</button><h2>🎒 Kho đồ</h2><h3>Hạt giống</h3>`;
+    for (const [id, n] of Object.entries(save.seeds)) {
+      if (n <= 0) continue;
+      html += `<div class="row"><span>${CROPS[id].emoji} ${CROPS[id].name} ×${n}</span><button data-hold="${id}">Cầm</button></div>`;
+    }
+    html += `<h3>Nông sản</h3>`;
+    let hasP = false;
+    for (const [id, n] of Object.entries(save.produce)) {
+      if (n <= 0) continue;
+      hasP = true;
+      html += `<div class="row"><span>${CROPS[id].emoji} ${CROPS[id].name} ×${n}</span></div>`;
+    }
+    if (!hasP) html += `<p style="opacity:.7">Trống</p>`;
+    html += `<h3>Dụng cụ</h3>
+      <div class="row"><span>💧 Bình tưới</span><button data-hold="watering_can">Cầm</button></div>
+      <div class="row"><span>🪓 Xẻng</span><button data-hold="shovel">Cầm</button></div>`;
+    panel.innerHTML = html;
+  } else if (mode === "quest") {
+    panel.innerHTML = `<button class="close" id="pc">✕</button><h2>📜 Nhiệm vụ</h2>
+      <div class="row"><span>Gieo 5 cây</span><span>${Math.min(5, save.quests.plant || 0)}/5</span></div>
+      <div class="row"><span>Thu hoạch 5 cây</span><span>${Math.min(5, save.quests.harvest || 0)}/5</span></div>
+      <div class="row"><span>Bán được 200💰</span><span>${Math.min(200, save.quests.sellCoins || 0)}/200</span></div>
+      <button id="claimq" style="margin-top:12px;width:100%">Nhận thưởng</button>`;
+  } else if (mode === "plant") {
+    let html = `<button class="close" id="pc">✕</button><h2>🌱 Chọn hạt</h2>`;
+    for (const [id, n] of Object.entries(save.seeds)) {
+      if (n <= 0) continue;
+      html += `<div class="row"><span>${CROPS[id].emoji} ${CROPS[id].name} ×${n}</span><button data-hold="${id}">Chọn</button></div>`;
+    }
+    panel.innerHTML = html;
+  } else if (mode === "set") {
+    panel.innerHTML = `<button class="close" id="pc">✕</button><h2>⚙️ Cài đặt</h2>
+      <div class="row"><button id="reset-save">Xóa tiến trình</button></div>
+      <p style="opacity:.75;margin-top:10px;font-size:13px;line-height:1.4">
+        WASD · Shift · Space · E · Chuột xoay camera<br/>
+        Mobile: joystick + nút Jump/Run/E
+      </p>`;
+  }
+  document.getElementById("pc")?.addEventListener("click", () => { panel.style.display = "none"; });
+  document.getElementById("restock")?.addEventListener("click", () => {
+    if (Date.now() < restockAt) {
+      const left = Math.ceil((restockAt - Date.now()) / 1000);
+      toast("Còn " + left + "s mới restock (hoặc chờ timer)");
+      return;
+    }
+    restockShop();
+    openPanel("shop");
+  });
+  panel.querySelectorAll("[data-buy]").forEach((btn) => {
+    btn.onclick = () => {
+      const id = btn.getAttribute("data-buy");
+      const c = CROPS[id];
+      if ((shopStock[id] || 0) <= 0) { toast("Hết hàng – chờ RESTOCK"); return; }
+      if (save.coins < c.seed) { toast("Không đủ tiền"); return; }
+      save.coins -= c.seed;
+      shopStock[id]--;
+      save.seeds[id] = (save.seeds[id] || 0) + 1;
+      persist(); updateHUD(); buildHotbar();
+      buzz(12);
+      toast("Mua 1 " + c.name + " Seed");
+      openPanel("shop");
+    };
+  });
+  panel.querySelectorAll("[data-sell]").forEach((btn) => {
+    btn.onclick = () => {
+      const id = btn.getAttribute("data-sell");
+      const n = save.produce[id] || 0;
+      if (!n) return;
+      const earn = CROPS[id].sell * n;
+      save.coins += earn;
+      save.quests.sellCoins = (save.quests.sellCoins || 0) + earn;
+      save.stats.sold += n;
+      save.produce[id] = 0;
+      save.xp += Math.floor(earn / 10);
+      levelCheck();
+      persist(); updateHUD(); openPanel("sell"); toast("+" + earn + "💰");
+    };
+  });
+  panel.querySelector("[data-sellall]")?.addEventListener("click", () => {
+    let earn = 0;
+    for (const [id, n] of Object.entries(save.produce)) {
+      if (n > 0) { earn += CROPS[id].sell * n; save.stats.sold += n; save.produce[id] = 0; }
+    }
+    if (!earn) return;
+    save.coins += earn;
+    save.quests.sellCoins = (save.quests.sellCoins || 0) + earn;
+    save.xp += Math.floor(earn / 10);
+    levelCheck();
+    persist(); updateHUD(); openPanel("sell"); toast("+" + earn + "💰");
+  });
+  panel.querySelectorAll("[data-hold]").forEach((btn) => {
+    btn.onclick = () => {
+      heldItem = btn.getAttribute("data-hold");
+      setHeldVisual(heldItem);
+      updateHeldLabel(); buildHotbar();
+      panel.style.display = "none";
+      toast("Cầm: " + (CROPS[heldItem]?.name || heldItem));
+    };
+  });
+  panel.querySelector("[data-pet]")?.addEventListener("click", () => {
+    if (save.pet) { toast("Đã có thú cưng"); return; }
+    if (save.coins < 180) { toast("Không đủ tiền"); return; }
+    save.coins -= 180; save.pet = "bunny";
+    spawnPet(); persist(); updateHUD(); toast("🐰 Thỏ đã theo bạn!");
+  });
+  panel.querySelectorAll("[data-shirt]").forEach((btn) => {
+    btn.onclick = () => {
+      save.appearance.shirt = btn.getAttribute("data-shirt");
+      torso.material.color.set(save.appearance.shirt);
+      armL.material.color.set(save.appearance.shirt);
+      armR.material.color.set(save.appearance.shirt);
+      persist();
+    };
+  });
+  document.getElementById("claimq")?.addEventListener("click", () => {
+    let reward = 0;
+    if ((save.quests.plant || 0) >= 5 && !save.quests._p) { reward += 50; save.quests._p = 1; }
+    if ((save.quests.harvest || 0) >= 5 && !save.quests._h) { reward += 60; save.quests._h = 1; }
+    if ((save.quests.sellCoins || 0) >= 200 && !save.quests._s) { reward += 80; save.quests._s = 1; }
+    if (reward) { save.coins += reward; persist(); updateHUD(); toast("Thưởng +" + reward + "💰"); }
+    else toast("Chưa đủ hoặc đã nhận");
+  });
+  document.getElementById("reset-save")?.addEventListener("click", () => {
+    localStorage.removeItem("gag3d-v2");
+    save = defaultSave();
+    location.reload();
+  });
+}
+
+document.getElementById("btn-inv").onclick = () => openPanel("inv");
+document.getElementById("btn-shop").onclick = () => openPanel("shop");
+document.getElementById("btn-music").onclick = () => toggleMusic();
+document.getElementById("btn-quest").onclick = () => openPanel("quest");
+document.getElementById("btn-set").onclick = () => openPanel("set");
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.display = "block";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.style.display = "none"; }, 2200);
+}
+function updateHUD() {
+  document.getElementById("money").textContent = "💰 " + save.coins;
+  document.getElementById("level").textContent = `⭐ Lv ${save.level} · ${save.xp} XP`;
+}
+function updateHeldLabel() {
+  const label = CROPS[heldItem]?.name || (heldItem === "watering_can" ? "Bình tưới" : heldItem === "shovel" ? "Xẻng" : "Tay");
+  document.getElementById("held").textContent = "Cầm: " + label;
+}
+function buildHotbar() {
+  const bar = document.getElementById("hotbar");
+  const ids = Object.keys(CROPS);
+  bar.innerHTML = "";
+  ids.forEach((id, i) => {
+    const n = save.seeds[id] || 0;
+    if (n <= 0 && i > 1) return;
+    const slot = document.createElement("div");
+    slot.className = "slot" + (heldItem === id ? " on" : "");
+    slot.textContent = CROPS[id].emoji;
+    const b = document.createElement("b");
+    b.textContent = n;
+    slot.appendChild(b);
+    slot.onclick = () => {
+      if (n > 0) { heldItem = id; setHeldVisual(id); updateHeldLabel(); buildHotbar(); }
+    };
+    bar.appendChild(slot);
+  });
+}
+function updatePrompt() {
+  const el = document.getElementById("prompt");
+  if (nearShop()) { el.style.display = "block"; el.textContent = "👋 Sam · Nói chuyện"; return; }
+  if (nearBuyer()) { el.style.display = "block"; el.textContent = "👋 Steven · Nói chuyện"; return; }
+  const p = nearestPlot();
+  if (p) {
+    const data = save.plots[p.key];
+    if (!data) { el.style.display = "block"; el.textContent = "🌱 Gieo hạt (E)"; return; }
+    const elapsed = (Date.now() - data.plantedAt) / 1000 + (data.boost || 0);
+    const progress = Math.min(1, elapsed / CROPS[data.crop].grow);
+    if (progress >= 1) { el.style.display = "block"; el.textContent = "✨ Thu hoạch " + CROPS[data.crop].emoji; return; }
+    el.style.display = "block";
+    el.textContent = CROPS[data.crop].emoji + " " + Math.floor(progress * 100) + "% · Tưới (E)";
+    return;
+  }
+  el.style.display = "none";
+}
+
+document.getElementById("tab-seed")?.addEventListener("click", () => {
+  // dịch chuyển gần quầy Sam
+  player.position.set(-6, 0, 13.5);
+  toast("Tới quầy Hạt giống – Sam");
+});
+document.getElementById("tab-garden")?.addEventListener("click", () => {
+  player.position.set(0, 0, -2);
+  toast("Khu vườn của bạn");
+});
+document.getElementById("tab-sell")?.addEventListener("click", () => {
+  player.position.set(6, 0, 13.5);
+  toast("Tới quầy BÁN – Steven");
+});
+
+// ═══════════════ WEATHER ═══════════════
+const rainDrops = [];
+function initRain() {
+  for (let i = 0; i < RAIN_COUNT; i++) {
+    const d = box(0.03, 0.25, 0.03, 0xa0d0ff, { transparent: true, opacity: 0.5 });
+    d.position.set((Math.random() - 0.5) * 60, Math.random() * 20, (Math.random() - 0.5) * 60);
+    d.visible = false;
+    scene.add(d);
+    rainDrops.push(d);
+  }
+}
+initRain();
+
+function setWeather(w) {
+  weather = w;
+  const badge = document.getElementById("weather-badge");
+  if (w === "sunny") {
+    badge.textContent = "☀️ Nắng";
+    scene.background.copy(skyDay);
+    scene.fog.color.copy(skyDay);
+    sun.intensity = 1.35;
+    hemi.intensity = 0.7;
+    rainDrops.forEach(d => d.visible = false);
+  } else if (w === "rain") {
+    badge.textContent = "🌧️ Mưa";
+    const c = new THREE.Color(0x6a8aaa);
+    scene.background.copy(c);
+    scene.fog.color.copy(c);
+    sun.intensity = 0.5;
+    hemi.intensity = 0.45;
+    rainDrops.forEach(d => d.visible = true);
+  } else {
+    badge.textContent = "🌙 Đêm";
+    scene.background.copy(skyNight);
+    scene.fog.color.copy(skyNight);
+    sun.intensity = 0.25;
+    hemi.intensity = 0.3;
+    rainDrops.forEach(d => d.visible = false);
+  }
+}
+
+// ═══════════════ LOOP ═══════════════
+const clock = new THREE.Clock();
+let lastPlantRefresh = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, clock.getDelta());
+  animT += dt;
+  weatherT += dt;
+
+  // weather cycle every ~90s
+  if (weatherT > 90) {
+    weatherT = 0;
+    const opts = ["sunny", "sunny", "rain", "night"];
+    setWeather(opts[Math.floor(Math.random() * opts.length)]);
+  }
+
+  // movement
+  let ix = 0, iz = 0;
+  if (keys["KeyW"] || keys["ArrowUp"]) iz -= 1;
+  if (keys["KeyS"] || keys["ArrowDown"]) iz += 1;
+  if (keys["KeyA"] || keys["ArrowLeft"]) ix -= 1;
+  if (keys["KeyD"] || keys["ArrowRight"]) ix += 1;
+  if (joy.active) { ix += joy.x; iz += joy.y; }
+
+  const len = Math.hypot(ix, iz);
+  let moving = len > 0.05;
+  if (moving) {
+    ix /= len; iz /= len;
+    const speed = (running || keys["ShiftLeft"] || keys["ShiftRight"] ? 7.8 : 4.4) * (save.pet === "bunny" ? 1.06 : 1);
+    const s = Math.sin(yaw), c = Math.cos(yaw);
+    const mx = ix * c + iz * s;
+    const mz = -ix * s + iz * c;
+    const nx = player.position.x + mx * speed * dt;
+    const nz = player.position.z + mz * speed * dt;
+    if (!blocked(nx, player.position.z)) player.position.x = nx;
+    if (!blocked(player.position.x, nz)) player.position.z = nz;
+    player.rotation.y = Math.atan2(mx, mz);
+  }
+
+  if (keys["Space"] && onGround) { velY = 7.5; onGround = false; }
+  velY -= 22 * dt;
+  player.position.y += velY * dt;
+  if (player.position.y <= 0) { player.position.y = 0; velY = 0; onGround = true; }
+
+  const swing = moving ? Math.sin(animT * (running ? 13 : 9)) * 0.5 : 0;
+  legL.rotation.x = swing;
+  legR.rotation.x = -swing;
+  armL.rotation.x = -swing * 0.75;
+  armR.rotation.x = swing * 0.75;
+
+  // camera follow (PC smoother + zoom)
+  const camH = IS_PC ? 5.0 : 4.8;
+  const tx = player.position.x + Math.sin(yaw) * camDist;
+  const tz = player.position.z + Math.cos(yaw) * camDist;
+  const ty = player.position.y + camH + Math.sin(pitch) * 3.2;
+  const camSmooth = IS_PC ? 0.0005 : 0.0008;
+  camera.position.lerp(new THREE.Vector3(tx, ty, tz), 1 - Math.pow(camSmooth, dt));
+  camera.lookAt(player.position.x, player.position.y + 1.55, player.position.z);
+
+  // pet
+  if (petMesh) {
+    const target = new THREE.Vector3(
+      player.position.x - Math.sin(player.rotation.y) * 1.5,
+      0,
+      player.position.z - Math.cos(player.rotation.y) * 1.5
+    );
+    petMesh.position.lerp(target, 1 - Math.pow(0.015, dt));
+    petMesh.lookAt(player.position.x, 0.4, player.position.z);
+  }
+
+  // water shimmer
+  water.material.opacity = 0.72 + Math.sin(animT * 1.8) * 0.1;
+  water.material.emissive = new THREE.Color(0x1a6080);
+  water.material.emissiveIntensity = 0.05 + Math.sin(animT) * 0.03;
+
+  // clouds drift
+  for (const cl of clouds) {
+    cl.mesh.position.x += cl.speed * dt;
+    if (cl.mesh.position.x > 45) cl.mesh.position.x = -45;
+  }
+
+  // rain
+  if (weather === "rain") {
+    for (const d of rainDrops) {
+      d.position.y -= 18 * dt;
+      if (d.position.y < 0) {
+        d.position.y = 15 + Math.random() * 8;
+        d.position.x = (Math.random() - 0.5) * 60;
+        d.position.z = (Math.random() - 0.5) * 60;
+      }
+    }
+  }
+
+  // particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    p.vy -= 8 * dt;
+    p.mesh.position.x += p.vx * dt;
+    p.mesh.position.y += p.vy * dt;
+    p.mesh.position.z += p.vz * dt;
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      particles.splice(i, 1);
+    }
+  }
+
+  // ready glow pulse
+  for (const key of Object.keys(plantGroups)) {
+    const g = plantGroups[key];
+    if (!g) continue;
+    const glow = g.getObjectByName("readyGlow");
+    if (glow) {
+      glow.rotation.z = animT * 0.8;
+      glow.material.opacity = 0.45 + Math.sin(animT * 3) * 0.3;
+      glow.scale.setScalar(1 + Math.sin(animT * 2.5) * 0.08);
+    }
+  }
+
+  // NPC idle bob
+  updateNPC(vendor, animT, dt);
+  updateNPC(buyer, animT, dt);
+
+  lastPlantRefresh += dt;
+  if (lastPlantRefresh > 1) {
+    lastPlantRefresh = 0;
+    refreshAllPlots();
+    if (save.pet === "bunny") {
+      for (const k of Object.keys(save.plots)) {
+        save.plots[k].boost = (save.plots[k].boost || 0) + 0.12;
+      }
+    }
+  }
+
+  updatePrompt();
+  renderer.render(scene, camera);
+}
+
+document.getElementById("play").onclick = () => {
+  document.getElementById("start").style.display = "none";
+  updateHUD();
+  buildHotbar();
+  updateHeldLabel();
+  setWeather("sunny");
+  buzz(8);
+  try { startGardenMusic(); } catch (e) { console.warn(e); }
+  onResize();
+  animate();
+  toast(IS_TOUCH
+    ? "Dùng joystick + nút E vàng · 🎵 bật/tắt nhạc"
+    : "Click xoay camera · E tương tác · 🎵 nhạc nền");
+  updateLockHint();
+};
+
+// Prevent iOS double-tap zoom on canvas/UI
+let lastTouchEnd = 0;
+document.addEventListener("touchend", (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd < 320) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+
+function onResize() {
+  const w = innerWidth, h = innerHeight;
+  camera.aspect = w / Math.max(1, h);
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, MAX_DPR));
+  renderer.setSize(w, h, false);
+}
+window.addEventListener("resize", onResize);
+window.addEventListener("orientationchange", () => setTimeout(onResize, 120));
+
+renderer.render(scene, camera);
+</script>
+</body>
+</html>
