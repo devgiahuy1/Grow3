@@ -1,4 +1,4 @@
-"""Grow a Garden – streamlit run app.py
+""Grow a Garden – streamlit run app.py
 Cần file game.html cùng thư mục.
 Tùy chọn: music_b64.txt (base64 mp3) để có nhạc nền.
 """
