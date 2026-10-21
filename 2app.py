@@ -1,7 +1,5 @@
 """Grow a Garden - Multiplayer Room Version
 streamlit run app.py
-Can file game.html cùng thư mục.
-Tùy chọn: music_b64.txt để có nhạc nền.
 """
 from __future__ import annotations
 
@@ -15,7 +13,6 @@ from typing import Any
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ====================== DEFAULT SAVE ======================
 DEFAULT = {
     "coins": 100,
     "xp": 0,
@@ -53,21 +50,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ====================== SHARED ROOM STATE ======================
 @st.cache_resource
 def get_rooms() -> dict[str, Any]:
-    """Global rooms store shared across all sessions."""
     return {}
-
 
 def generate_room_code(length: int = 5) -> str:
     chars = string.ascii_uppercase + string.digits
     chars = chars.replace("O", "").replace("0", "").replace("I", "").replace("1", "")
     return "".join(random.choices(chars, k=length))
 
-
 def cleanup_rooms(rooms: dict, max_age_sec: int = 3600 * 6) -> None:
-    """Xóa phòng quá cũ hoặc không còn người."""
     now = time.time()
     to_delete = []
     for code, room in list(rooms.items()):
@@ -82,57 +74,45 @@ def cleanup_rooms(rooms: dict, max_age_sec: int = 3600 * 6) -> None:
     for code in to_delete:
         rooms.pop(code, None)
 
-
-# ====================== SESSION STATE ======================
 if "player" not in st.session_state:
     st.session_state.player = DEFAULT.copy()
-
 if "username" not in st.session_state:
     st.session_state.username = ""
-
 if "room_code" not in st.session_state:
     st.session_state.room_code = None
-
 if "player_id" not in st.session_state:
     st.session_state.player_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
-
-# ====================== STYLE ======================
-st.markdown(
-    """
-    <style>
-    [data-testid="stAppViewContainer"]{background:#0b1a12}
-    .block-container{padding-top:0.6rem!important;max-width:100%!important}
-    #MainMenu,footer,header{visibility:hidden}
-    div[data-testid="stSidebar"] {background: #0f2418; border-right: 2px solid #2d5a3a;}
-    .room-card {
-        background: linear-gradient(180deg, #1a3d28, #0f2418);
-        border: 2px solid #4ade80;
-        border-radius: 12px;
-        padding: 12px 14px;
-        margin-bottom: 10px;
-        color: #e8ffe8;
-        font-family: system-ui, sans-serif;
-    }
-    .player-chip {
-        display: inline-block;
-        background: #14532d;
-        border: 1px solid #4ade80;
-        border-radius: 20px;
-        padding: 3px 10px;
-        margin: 3px 4px 3px 0;
-        font-size: 13px;
-        font-weight: 700;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<style>
+[data-testid="stAppViewContainer"]{background:#0b1a12}
+.block-container{padding-top:0.6rem!important;max-width:100%!important}
+#MainMenu,footer,header{visibility:hidden}
+div[data-testid="stSidebar"] {background: #0f2418; border-right: 2px solid #2d5a3a;}
+.room-card {
+    background: linear-gradient(180deg, #1a3d28, #0f2418);
+    border: 2px solid #4ade80;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    color: #e8ffe8;
+}
+.player-chip {
+    display: inline-block;
+    background: #14532d;
+    border: 1px solid #4ade80;
+    border-radius: 20px;
+    padding: 3px 10px;
+    margin: 3px 4px 3px 0;
+    font-size: 13px;
+    font-weight: 700;
+}
+</style>
+""", unsafe_allow_html=True)
 
 rooms = get_rooms()
 cleanup_rooms(rooms)
 
-# ====================== SIDEBAR - ROOM SYSTEM ======================
 with st.sidebar:
     st.markdown("## 🌱 Grow a Garden")
     st.caption("Multiplayer Room")
@@ -149,17 +129,19 @@ with st.sidebar:
 
     st.divider()
 
-    # ===== ĐANG Ở TRONG PHÒNG =====
     if st.session_state.room_code and st.session_state.room_code in rooms:
         room = rooms[st.session_state.room_code]
         code = st.session_state.room_code
-
         pid = st.session_state.player_id
+
         if pid not in room["players"]:
             room["players"][pid] = {
+                "id": pid,
                 "name": st.session_state.username or "Người chơi",
                 "last_seen": time.time(),
                 "joined_at": time.time(),
+                "x": 0,
+                "z": 0,
             }
         else:
             room["players"][pid]["last_seen"] = time.time()
@@ -173,13 +155,13 @@ with st.sidebar:
         online = []
         for uid, p in list(room["players"].items()):
             if now - p.get("last_seen", 0) <= 90:
-                online.append(p.get("name", "???"))
+                online.append(p)
             else:
                 room["players"].pop(uid, None)
 
         st.markdown("**Người trong phòng:**")
         if online:
-            chips = " ".join(f'<span class="player-chip">👤 {n}</span>' for n in online)
+            chips = " ".join(f'<span class="player-chip">👤 {p.get("name","???")}</span>' for p in online)
             st.markdown(chips, unsafe_allow_html=True)
         else:
             st.caption("Chỉ có mình bạn...")
@@ -198,11 +180,8 @@ with st.sidebar:
 
         st.divider()
         st.info("Mỗi người vẫn có **vườn riêng**. Tiền / hạt / level không dùng chung.")
-
-    # ===== CHƯA VÀO PHÒNG =====
     else:
         st.markdown("### Tạo / Vào phòng")
-
         if not st.session_state.username:
             st.warning("Hãy nhập tên trước khi tạo hoặc vào phòng.")
         else:
@@ -216,9 +195,12 @@ with st.sidebar:
                     "created_at": time.time(),
                     "players": {
                         st.session_state.player_id: {
+                            "id": st.session_state.player_id,
                             "name": st.session_state.username,
                             "last_seen": time.time(),
                             "joined_at": time.time(),
+                            "x": 0,
+                            "z": 0,
                         }
                     },
                 }
@@ -226,71 +208,67 @@ with st.sidebar:
                 st.rerun()
 
             st.markdown("---")
-            join_code = st.text_input(
-                "Mã phòng",
-                max_chars=6,
-                placeholder="Ví dụ: K7P2M",
-                key="join_code_input",
-            ).strip().upper()
-
+            join_code = st.text_input("Mã phòng", max_chars=6, placeholder="Ví dụ: K7P2M", key="join_code_input").strip().upper()
             if st.button("🚪 Vào phòng", use_container_width=True):
                 if not join_code:
                     st.error("Nhập mã phòng")
                 elif join_code not in rooms:
-                    st.error("Không tìm thấy phòng này (có thể đã hết hạn)")
+                    st.error("Không tìm thấy phòng này")
                 else:
                     room = rooms[join_code]
                     room["players"][st.session_state.player_id] = {
+                        "id": st.session_state.player_id,
                         "name": st.session_state.username,
                         "last_seen": time.time(),
                         "joined_at": time.time(),
+                        "x": random.uniform(-6, 6),
+                        "z": random.uniform(-6, 6),
                     }
                     st.session_state.room_code = join_code
                     st.rerun()
-
         st.divider()
         st.caption("Phòng sẽ tự xóa nếu không còn ai sau vài phút.")
 
-# ====================== MAIN GAME ======================
 if not GAME_PATH.exists():
-    st.error("Không tìm thấy game.html — hãy để file này cùng thư mục với app.py")
+    st.error("Không tìm thấy game.html")
     st.stop()
 
 music_b64 = ""
 if MUSIC_PATH.exists():
     music_b64 = MUSIC_PATH.read_text(encoding="utf-8").strip()
 
-html = GAME_PATH.read_text(encoding="utf-8")
+other_players = []
+if st.session_state.room_code and st.session_state.room_code in rooms:
+    room = rooms[st.session_state.room_code]
+    now = time.time()
+    for uid, p in room.get("players", {}).items():
+        if now - p.get("last_seen", 0) <= 90:
+            other_players.append({
+                "id": p.get("id", uid),
+                "name": p.get("name", "???"),
+                "x": p.get("x", 0),
+                "z": p.get("z", 0),
+            })
 
+html = GAME_PATH.read_text(encoding="utf-8")
 html = html.replace(
     "/*__SAVE_INJECT__*/",
-    "window.__INITIAL_SAVE__ = "
-    + json.dumps(st.session_state.player)
-    + "; window.__MUSIC_B64__ = "
-    + json.dumps(music_b64)
-    + "; window.__ROOM_CODE__ = "
-    + json.dumps(st.session_state.room_code)
-    + "; window.__USERNAME__ = "
-    + json.dumps(st.session_state.username or "")
-    + ";",
+    "window.__INITIAL_SAVE__ = " + json.dumps(st.session_state.player) +
+    "; window.__MUSIC_B64__ = " + json.dumps(music_b64) +
+    "; window.__ROOM_CODE__ = " + json.dumps(st.session_state.room_code) +
+    "; window.__USERNAME__ = " + json.dumps(st.session_state.username or "") +
+    "; window.__OTHER_PLAYERS__ = " + json.dumps(other_players) + ";",
 )
 
 if st.session_state.room_code:
     room = rooms.get(st.session_state.room_code)
     if room:
-        online_count = sum(
-            1 for p in room.get("players", {}).values() if time.time() - p.get("last_seen", 0) <= 90
-        )
-        st.markdown(
-            f"""
-            <div class="room-card">
-                <b>🏠 Phòng <code>{st.session_state.room_code}</code></b> &nbsp;·&nbsp;
-                {online_count} người đang chơi &nbsp;·&nbsp;
-                Bạn: <b>{st.session_state.username or "???"}</b>
-                <br/><span style="font-size:12px;opacity:0.8">Vườn của mỗi người vẫn riêng — chỉ cùng map thôi</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        online_count = sum(1 for p in room.get("players", {}).values() if time.time() - p.get("last_seen", 0) <= 90)
+        st.markdown(f"""
+        <div class="room-card">
+            <b>🏠 Phòng <code>{st.session_state.room_code}</code></b> · {online_count} người đang chơi · Bạn: <b>{st.session_state.username or "???"}</b>
+            <br/><span style="font-size:12px;opacity:0.8">Vườn mỗi người vẫn riêng</span>
+        </div>
+        """, unsafe_allow_html=True)
 
 components.html(html, height=820, scrolling=False)
